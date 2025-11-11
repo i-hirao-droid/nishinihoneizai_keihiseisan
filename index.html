@@ -346,7 +346,8 @@
          <div class="modal-body">
           <form id="expense-form">
             <input type="hidden" id="M-expenseId">
-            <div class="row g-3">
+            
+             <div class="row g-3">
               <div class="col-md-6">
                 <label for="M-useDate" class="form-label">利用日 <span class="text-danger">*</span></label>
                 <input type="date" class="form-control" id="M-useDate" required>
@@ -370,15 +371,27 @@
               <hr class="my-2">
               
               <div class="col-12">
-                 <label for="M-receiptImage" class="form-label">領収書アップロード (AI-OCR)</label>
-                <input class="form-control" type="file" id="M-receiptImage" accept="image/*">
-                <div class="form-text">画像ファイル(JPG, PNG等)を選択すると、AIが利用日・金額・備考を自動入力します。</div>
-                <div id="M-ocr-status" class="mt-2"></div>
+                 <label class="form-label">領収書 (カメラ撮影)</label>
+                 <div>
+                   <button type="button" class="btn btn-sm btn-outline-primary" id="M-start-camera" onclick="startCameraA()">
+                     <i class="bi bi-camera"></i> カメラを起動
+                   </button>
+                   <button type="button" class="btn btn-sm btn-danger" id="M-capture-image" onclick="captureImageA()" style="display: none;">
+                     <i class="bi bi-camera-reels-fill"></i> 撮影する
+                   </button>
+                 </div>
+                 <div id="M-camera-container" class="mt-2" style="display: none; position: relative; max-width: 100%;">
+                   <video id="M-camera-video" style="width: 100%; height: auto; border: 1px solid #ddd;" playsinline autoplay></video>
+                 </div>
+                 <canvas id="M-camera-canvas" style="display: none;"></canvas>
+                 <div id="M-upload-status" class="mt-2"></div>
               </div>
+              
               <div class="col-12">
                  <label for="M-receiptUrl" class="form-label">領収書URL</label>
                 <input type="text" class="form-control" id="M-receiptUrl" readonly>
               </div>
+              
             </div>
           </form>
         </div>
@@ -443,21 +456,21 @@
     var EXPENSE_ITEMS_MASTER = <?!= expenseItems ?>;
     
     // (A) 経費申請用データ
-    // (v20: currentActivities 削除)
     var currentExpenses = []; // [ { expenseId, useDate, itemCode, amount, remarks, receiptUrl }, ... ]
     
-    // (v20: TIME_SLOTS 削除)
-
     // (A) 経費モーダルのインスタンス
     var expenseModalInstance;
     // (C) 詳細画面の遷移元
-    var viewC_ReturnView = 'view-E-my-reports'; // デフォルトは一覧(E)
+    var viewC_ReturnView = 'view-E-my-reports';
     
     // (v18) カスタムモーダルのインスタンスとコールバック
     var customAlertModalInstance;
     var customPromptModalInstance;
     var customAlertCallback = null;
     var customPromptCallback = null;
+
+    // (v22: 新規) カメラのストリームを保持
+    var currentStream = null;
 
 
     // --- 初期化 -------------------------------------------------------
@@ -474,7 +487,6 @@
       
       // (A) 経費モーダルの初期化
       expenseModalInstance = new bootstrap.Modal(document.getElementById('expenseModal'));
-      // (v20: onExpenseModalShowA 削除)
       document.getElementById('expenseModal').addEventListener('hidden.bs.modal', onExpenseModalHideA);
       
       // (v18) カスタムモーダルの初期化
@@ -483,18 +495,15 @@
       // (A) 経費モーダルの項目マスタ読み込み
       loadExpenseItemsMasterA();
 
-      // (v20: タイムシート描画 削除)
-      // (v20: メーター計算 削除)
-
-      // (A) 領収書アップロード(OCR)のイベントリスナー設定
-      document.getElementById('M-receiptImage').addEventListener('change', handleImageUploadA);
+      // (v22: 削除) OCRのイベントリスナー
+      // document.getElementById('M-receiptImage').addEventListener('change', handleImageUploadA);
       
       // (C) 詳細画面の戻るボタン
       document.getElementById('C-back-button').addEventListener('click', function() {
         showView(viewC_ReturnView);
       });
       
-      // デフォルトビューの表示 (v20: 経費申請を最初に表示)
+      // デフォルトビューの表示
       showView('view-A-expense-report');
     });
 
@@ -509,7 +518,6 @@
           var viewId = e.currentTarget.dataset.view;
           showView(viewId);
           
-          // Bootstrap 5 のトグルを閉じる
           var navbar = document.getElementById('navbarNav');
           var bsCollapse = bootstrap.Collapse.getInstance(navbar);
            if (bsCollapse && navbar.classList.contains('show')) {
@@ -524,7 +532,7 @@
      */
     function loadExpenseItemsMasterA() {
       var select = document.getElementById('M-itemCode');
-      select.innerHTML = '<option value="">選択してください</option>'; // 初期化
+      select.innerHTML = '<option value="">選択してください</option>';
       
       EXPENSE_ITEMS_MASTER.forEach(function(item) {
         var option = document.createElement('option');
@@ -572,7 +580,7 @@
     }
     
     /**
-     * (v18) カスタムAlertを表示 (alert() の代替)
+     * (v18) カスタムAlertを表示
      */
     function showCustomAlert(message, callback) {
       document.getElementById('customAlertMessage').textContent = message;
@@ -587,7 +595,7 @@
     }
     
     /**
-     * (v18) カスタムPromptを表示 (prompt() の代替)
+     * (v18) カスタムPromptを表示
      */
     function showCustomPrompt(message, callback) {
       document.getElementById('customPromptMessage').textContent = message;
@@ -617,10 +625,8 @@
       if (targetView) {
         targetView.classList.add('active');
         
-        // ビュー表示時のロード処理
         switch (viewId) {
-          case 'view-A-expense-report': // (v20: 修正)
-            // 申請日(A-date)が空なら今日の日付をセット
+          case 'view-A-expense-report':
             if (!document.getElementById('A-date').value) {
               document.getElementById('A-date').value = getTodayString();
             }
@@ -673,7 +679,7 @@
      */
     function getTodayString() {
       var today = new Date();
-      today.setHours(today.getHours() + 9); // JST補正
+      today.setHours(today.getHours() + 9);
       return today.toISOString().split('T')[0];
     }
     
@@ -712,14 +718,12 @@
       document.getElementById('A-reportId').value = '';
       document.getElementById('A-date').value = getTodayString();
       
-      // (v15) 差戻し理由を非表示
       var reasonDiv = document.getElementById('A-rejection-reason');
       reasonDiv.textContent = '';
       reasonDiv.style.display = 'none';
       
       currentExpenses = [];
       
-      // 経費明細テーブルをリセット
       renderExpenseListA();
     }
 
@@ -757,24 +761,21 @@
         });
       }
       
-      // 合計金額を更新
       document.getElementById('A-total-expense-amount').textContent = formatNumber(totalAmount) + ' 円';
     }
 
 
     /**
      * (A) 経費モーダルを開く (v20: 修正)
-     * @param {string | null} expenseId 編集対象のID (新規の場合は null)
      */
     function openExpenseModalA(expenseId) {
-      // モーダルフォームをリセット
       document.getElementById('expense-form').reset();
       document.getElementById('M-expenseId').value = '';
-      // (v20: M-timeSlot 削除)
       
-      // OCRステータスをリセット
-      document.getElementById('M-ocr-status').innerHTML = '';
+      // (v22: カメラ・アップロード状態をリセット)
+      document.getElementById('M-upload-status').innerHTML = '';
       document.getElementById('M-receiptUrl').value = '';
+      stopCameraA();
       
       var deleteButton = document.getElementById('M-delete-expense');
       
@@ -792,87 +793,160 @@
           document.getElementById('M-remarks').value = expenseToEdit.remarks;
           document.getElementById('M-receiptUrl').value = expenseToEdit.receiptUrl;
           
-          deleteButton.style.display = 'inline-block'; // 削除ボタン表示
+          deleteButton.style.display = 'inline-block';
         } else {
-          // IDがあるのに見つからない (異常系)
            showCustomAlert('エラー: 編集対象の経費が見つかりませんでした。');
            return;
         }
       } else {
         // (v20) 新規モード
-        // 利用日はヘッダーの日付をデフォルトセット
         document.getElementById('M-useDate').value = document.getElementById('A-date').value || getTodayString();
-        deleteButton.style.display = 'none'; // 削除ボタン非表示
+        deleteButton.style.display = 'none';
       }
       
       expenseModalInstance.show();
     }
     
     /**
-     * (A) 経費モーダル非表示時の処理
+     * (A) 経費モーダル非表示時の処理 (v22: 修正)
      */
     function onExpenseModalHideA() {
-      // フォームとOCRステータスをクリア
       document.getElementById('expense-form').reset();
-      document.getElementById('M-ocr-status').innerHTML = '';
-      document.getElementById('M-receiptImage').value = ''; // fileインプットもクリア
+      document.getElementById('M-upload-status').innerHTML = '';
       document.getElementById('M-delete-expense').style.display = 'none';
-    }
-
-    /**
-     * (A) 領収書画像アップロード処理 (AI-OCR)
-     */
-    function handleImageUploadA(event) {
-      var file = event.target.files[0];
-      if (!file) return;
-
-      var reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = function() {
-        var base64Image = reader.result;
-        var statusEl = document.getElementById('M-ocr-status');
-        statusEl.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> AI-OCRで解析中です...</span>';
-        
-        showLoading(true, 'AI-OCRで解析中...');
-        google.script.run
-          .withSuccessHandler(onOcrSuccessA)
-          .withFailureHandler(onApiError)
-          .processImageOCR(base64Image);
-      };
-      reader.onerror = function(error) {
-        console.error("File reading error: ", error);
-        showCustomAlert('ファイルの読み込みに失敗しました。');
-      };
-    }
-
-    /**
-     * (A) AI-OCR成功時のコールバック (v18)
-     */
-    function onOcrSuccessA(result) {
-      showLoading(false);
       
-      // (v20: result.success ではなく result.status)
-      if (result.status === 'success' && result.ocrData) {
-        var receiptUrl = result.url; // (v20: キー名修正)
-        var ocrData = result.ocrData;
+      stopCameraA(); // (v22: カメラを停止)
+    }
+
+    /**
+     * (v22: 削除) handleImageUploadA
+     */
+    /**
+     * (v22: 削除) onOcrSuccessA
+     */
+     
+    /**
+     * (v22: 新規) カメラを停止する
+     */
+    function stopCameraA() {
+      if (currentStream) {
+        currentStream.getTracks().forEach(function(track) {
+          track.stop();
+        });
+        currentStream = null;
+      }
+      document.getElementById('M-camera-container').style.display = 'none';
+      document.getElementById('M-capture-image').style.display = 'none';
+      document.getElementById('M-start-camera').style.display = 'inline-block';
+    }
+
+    /**
+     * (v22: 新規) カメラを起動する
+     */
+    function startCameraA() {
+      stopCameraA(); // 念のため既存を停止
+      var video = document.getElementById('M-camera-video');
+      var container = document.getElementById('M-camera-container');
+      var statusEl = document.getElementById('M-upload-status');
+      
+      statusEl.innerHTML = '';
+      
+      // navigator.mediaDevices.getUserMedia が存在するか確認
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
         
-        document.getElementById('M-ocr-status').innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill"></i> OCR解析が完了しました。</span>';
-        
-        // フォームに自動入力
-        if (ocrData.date) {
-          document.getElementById('M-useDate').value = ocrData.date;
-        }
-        if (ocrData.amount) {
-          document.getElementById('M-amount').value = ocrData.amount;
-        }
-        if (ocrData.remarks) {
-          document.getElementById('M-remarks').value = ocrData.remarks;
-        }
-        
-        document.getElementById('M-receiptUrl').value = receiptUrl;
+        // (v22) まず背面カメラ(environment)を試す
+        navigator.mediaDevices.getUserMedia({ 
+          video: { 
+            facingMode: 'environment' 
+          } 
+        })
+        .then(function(stream) {
+          currentStream = stream;
+          video.srcObject = stream;
+          video.play();
+          container.style.display = 'block';
+          document.getElementById('M-start-camera').style.display = 'none';
+          document.getElementById('M-capture-image').style.display = 'inline-block';
+        })
+        .catch(function(err) {
+          console.error("Camera error (environment): ", err);
+          
+          // (v22) 背面カメラが失敗したら、前面カメラ(user)でリトライ
+          navigator.mediaDevices.getUserMedia({ video: true })
+           .then(function(stream) {
+              currentStream = stream;
+              video.srcObject = stream;
+              video.play();
+              container.style.display = 'block';
+              document.getElementById('M-start-camera').style.display = 'none';
+              document.getElementById('M-capture-image').style.display = 'inline-block';
+           })
+           .catch(function(err2) {
+              // (v22) それでも失敗した場合
+              console.error("Camera error (fallback): ", err2);
+              statusEl.innerHTML = '<span class="text-danger">カメラの起動に失敗しました。ブラウザのカメラ権限を確認してください。</span>';
+           });
+        });
       } else {
-        onApiError((result && result.message) || 'OCR解析に失敗しました。');
-        document.getElementById('M-ocr-status').innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> OCR解析に失敗しました。</span>';
+         statusEl.innerHTML = '<span class="text-danger">お使いのブラウザはカメラ機能に対応していません。</span>';
+      }
+    }
+    
+    /**
+     * (v22: 新規) カメラから画像をキャプチャしてアップロード
+     */
+    function captureImageA() {
+      var video = document.getElementById('M-camera-video');
+      var canvas = document.getElementById('M-camera-canvas');
+      var context = canvas.getContext('2d');
+      var statusEl = document.getElementById('M-upload-status');
+      
+      if (!currentStream) {
+        statusEl.innerHTML = '<span class="text-danger">カメラが起動していません。</span>';
+        return;
+      }
+      
+      // Canvasのサイズをビデオの表示サイズに合わせる
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Canvasにビデオの現在のフレームを描画
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      // Base64データを取得 (PNG形式)
+      var base64Image = canvas.toDataURL('image/png');
+      
+      // カメラを停止
+      stopCameraA();
+      
+      // アップロード処理
+      statusEl.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> 画像をアップロード中です...</span>';
+      showLoading(true, '画像をアップロード中...');
+      
+      google.script.run
+        .withSuccessHandler(onUploadSuccessA)
+        .withFailureHandler(onApiError)
+        .uploadBase64Image(base64Image); // (v22: 新しいGAS関数を呼ぶ)
+    }
+    
+    /**
+     * (v22: 新規) 画像アップロード成功時のコールバック
+     */
+    function onUploadSuccessA(result) {
+      showLoading(false);
+      var statusEl = document.getElementById('M-upload-status');
+      
+      if (result.status === 'success' && result.url) {
+        statusEl.innerHTML = '<span class="text-success"><i class="bi bi-check-circle-fill"></i> アップロードが完了しました。</span>';
+        
+        // 領収書URLに設定
+        document.getElementById('M-receiptUrl').value = result.url;
+        
+        // (v22: OCR機能は削除されたので、フォームへの自動入力は行わない)
+        
+      } else {
+        onApiError((result && result.message) || 'アップロードに失敗しました。');
+        statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> アップロードに失敗しました。</span>';
       }
     }
 
@@ -880,7 +954,6 @@
      * (A) モーダルから経費アイテムを currentExpenses に追加 (v20: 修正)
      */
     function addExpenseItemA() {
-      // バリデーション
       var form = document.getElementById('expense-form');
       if (!form.checkValidity()) {
         form.classList.add('was-validated');
@@ -890,11 +963,8 @@
       form.classList.remove('was-validated');
       
       var expenseId = document.getElementById('M-expenseId').value;
-      // (v20: timeSlot 削除)
       
       var expense = {
-        // expenseId: (v20)
-        // timeSlot: (v20: 削除)
         useDate: document.getElementById('M-useDate').value,
         itemCode: document.getElementById('M-itemCode').value,
         amount: parseFloat(document.getElementById('M-amount').value) || 0,
@@ -903,46 +973,41 @@
       };
 
       if (expenseId) {
-        // (v20) 編集モード
-        expense.expenseId = expenseId; // IDを保持
+        // 編集モード
+        expense.expenseId = expenseId;
         var index = currentExpenses.findIndex(function(ex) { return ex.expenseId === expenseId; });
         if (index > -1) {
-          currentExpenses[index] = expense; // 配列を上書き
+          currentExpenses[index] = expense;
         } else {
-          // 念のため
           currentExpenses.push(expense);
         }
       } else {
-        // (v20) 新規モード
-        expense.expenseId = 'temp_' + Date.now(); // 新規一時ID
+        // 新規モード
+        expense.expenseId = 'temp_' + Date.now();
         currentExpenses.push(expense);
       }
       
-      // (v20) メインのリストを再描画
       renderExpenseListA();
       
       expenseModalInstance.hide();
     }
     
     /**
-     * (A) (v19) 経費アイテムを削除 (v20: 修正)
+     * (A) (v19) 経費アイテムを削除
      */
     function deleteExpenseItemA() {
       var expenseId = document.getElementById('M-expenseId').value;
-      // (v20: timeSlot 削除)
       
       if (!expenseId) {
         showCustomAlert('削除対象の経費が見つかりません。');
         return;
       }
       
-      // (v20: 確認ダイアログを v18 のものに変更)
       showCustomAlert('この経費明細を削除します。よろしいですか？', function() {
         currentExpenses = currentExpenses.filter(function(ex) {
           return ex.expenseId !== expenseId;
         });
         
-        // (v20) メインのリストを再描画
         renderExpenseListA();
         
         expenseModalInstance.hide();
@@ -950,19 +1015,10 @@
     }
 
     /**
-     * (v20: タイムシート関連のバッジ関数 削除)
-     */
-    /**
-     * (v20: compressActivities_ 削除)
-     */
-
-    /**
      * (A) 経費申請の保存または申請 (v20: 修正)
-     * @param {'一時保存' | '申請中'} status
      */
     function saveOrSubmitExpenseReportA(status) {
       
-      // バリデーション
       var reportDate = document.getElementById('A-date').value;
       var reportTitle = document.getElementById('A-title').value;
       if (!reportDate || !reportTitle) {
@@ -970,49 +1026,36 @@
         return;
       }
       
-      // (v20: 活動データチェック 削除)
       if (currentExpenses.length === 0) {
         showCustomAlert('経費明細が1件も入力されていません。');
         return;
       }
       
-      // (v18) 確認ダイアログ
       var confirmMessage = '「' + status + '」で送信します。よろしいですか？';
       if (status === '申請中') {
          confirmMessage += '\n※申請後は編集できなくなります。';
       }
       
       showCustomAlert(confirmMessage, function() {
-        // --- OKが押された場合の処理 ---
         showLoading(true, status + '処理を実行中...');
         
-        // 1. ヘッダーデータ
         var headerData = {
            reportId: document.getElementById('A-reportId').value,
-          date: reportDate, // "yyyy-MM-dd"
-          title: reportTitle, // (v20: 追加)
+          date: reportDate,
+          title: reportTitle,
           remarks: document.getElementById('A-remarks').value,
-          // (v20: メーター関連 削除)
         };
-
-        // 2. (v20: 行動明細 削除)
-        
-        // 3. 経費明細データ (currentExpenses はそのまま)
         
         var reportData = {
           header: headerData,
-          // activities: (v20: 削除)
           expenses: currentExpenses
         };
-        
-        // console.log("Submitting data:", reportData);
         
         google.script.run
           .withSuccessHandler(function(result) {
             showLoading(false);
             if (result && result.status === 'success') {
-              showCustomAlert(result.message, function() { // (v18)
-                // 成功したらフォームをリセットし、一覧に遷移
+              showCustomAlert(result.message, function() {
                  resetFormA();
                 showView('view-E-my-reports');
               });
@@ -1021,7 +1064,7 @@
             }
           })
            .withFailureHandler(onApiError)
-          .saveOrSubmitExpenseReport(reportData, status); // (v20: 関数名変更)
+          .saveOrSubmitExpenseReport(reportData, status);
       });
     }
 
@@ -1056,13 +1099,11 @@
 
       badge.textContent = reports.length;
       
-      // 日付でソート (昇順)
       reports.sort(function(a, b) {
         return (a['日付'] || '').localeCompare(b['日付'] || '');
       });
       
       reports.forEach(function(report) {
-        // (v17) GASが yyyy/MM/dd を返す
         var dateStr = report['日付'] || '日付不明';
         var formattedDate = '';
         try {
@@ -1074,14 +1115,14 @@
         item.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center report-list-item';
         item.onclick = function(e) {
           e.preventDefault();
-          loadReportDetailsC(report['経費ID'], 'view-B-approval-list'); // (v20: キー名変更)
+          loadReportDetailsC(report['経費ID'], 'view-B-approval-list');
         };
            
         item.innerHTML = 
           '<div>' +
             '<h5 class="mb-1">' + dateStr + ' (' + formattedDate + ')</h5>' +
-            '<p class="mb-1">申請者: ' + (report['申請者'] || '不明') + '</p>' + // (v20: キー名変更)
-            '<p class="mb-0"><small>件名: ' + (report['件名'] || 'N/A') + '</small></p>' + // (v20: 追加)
+            '<p class="mb-1">申請者: ' + (report['申請者'] || '不明') + '</p>' +
+            '<p class="mb-0"><small>件名: ' + (report['件名'] || 'N/A') + '</small></p>' +
             '<small>合計経費: ' + formatNumber(report['合計経費'] || 0) + ' 円</small>' +
           '</div>' +
           '<i class="bi bi-chevron-right h4"></i>';
@@ -1097,7 +1138,7 @@
      */
     function loadReportDetailsC(reportId, returnViewId) {
       showLoading(true, '詳細を取得中...');
-      viewC_ReturnView = returnViewId; // 戻り先をセット
+      viewC_ReturnView = returnViewId;
       
       google.script.run
         .withSuccessHandler(onLoadReportDetailsSuccessC)
@@ -1111,31 +1152,27 @@
     function onLoadReportDetailsSuccessC(data) {
       showLoading(false);
       
-      if (!data || !data.header || !data.header['経費ID']) { // (v20: キー名変更)
+      if (!data || !data.header || !data.header['経費ID']) {
         console.error('onLoadReportDetailsSuccessC: Invalid data received.', data);
         onApiError('詳細データの取得に失敗しました。データが不正か、対象が見つかりません。');
         return;
       }
 
       var header = data.header;
-      // var activities = data.activities; // (v20: 廃止)
       var expenses = data.expenses;
 
       // 1. ヘッダー
       document.getElementById('C-header-date').textContent = header['日付'] ?
         formatDateWithDay(header['日付']) : '日付なし';
-      document.getElementById('C-header-applicant').textContent = header['申請者'] || '不明'; // (v20: キー名変更)
+      document.getElementById('C-header-applicant').textContent = header['申請者'] || '不明';
       document.getElementById('C-header-apply-date').textContent = header['申請日'] || 'N/A';
-      document.getElementById('C-header-title').textContent = header['件名'] || 'N/A'; // (v20: 追加)
+      document.getElementById('C-header-title').textContent = header['件名'] || 'N/A';
       document.getElementById('C-header-total-expense').textContent = formatNumber(header['合計経費'] || 0);
       document.getElementById('C-header-remarks').textContent = header['備考'] || '(備考なし)';
       
-      // (v20: 走行距離・時間 削除)
-
-      // ステータスバッジ
       var statusBadge = document.getElementById('C-header-status-badge');
       statusBadge.textContent = header['承認ステータス'];
-      statusBadge.className = 'badge fs-6'; // reset
+      statusBadge.className = 'badge fs-6';
       switch (header['承認ステータス']) {
         case '申請中': statusBadge.classList.add('bg-primary'); break;
         case '承認済': statusBadge.classList.add('bg-success'); break;
@@ -1145,7 +1182,6 @@
         default: statusBadge.classList.add('bg-secondary');
       }
       
-      // (v18) 差戻し理由
       var reasonWrapper = document.getElementById('C-rejection-reason-wrapper');
       var reasonPre = document.getElementById('C-rejection-reason');
       if (header['差戻し理由']) {
@@ -1156,8 +1192,6 @@
         reasonWrapper.style.display = 'none';
       }
       
-      // 2. (v20: 行動明細 削除)
-      
       // 3. 経費明細
       var expBody = document.getElementById('C-expenses-body');
       expBody.innerHTML = '';
@@ -1167,7 +1201,6 @@
           var url = ex.receiptUrl;
           var urlLink = url ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i></a>' : '';
           
-          // (v20: 「時間帯」削除)
           expBody.innerHTML += 
             '<tr>' +
               '<td>' + useDate + '</td>' +
@@ -1178,13 +1211,13 @@
             '</tr>';
         });
       } else {
-        expBody.innerHTML = '<tr><td colspan="5">経費明細はありません。</td></tr>'; // (v20: colspan変更)
+        expBody.innerHTML = '<tr><td colspan="5">経費明細はありません。</td></tr>';
       }
       
       // 4. 承認ボタンの制御
       var approvalButtons = document.getElementById('C-approval-buttons');
       if (IS_MANAGER && header['承認ステータス'] === '申請中' && viewC_ReturnView === 'view-B-approval-list') {
-        document.getElementById('C-reportId').value = header['経費ID']; // (v20: キー名変更)
+        document.getElementById('C-reportId').value = header['経費ID'];
         approvalButtons.style.display = 'block';
       } else {
         approvalButtons.style.display = 'none';
@@ -1200,12 +1233,12 @@
       var reportId = document.getElementById('C-reportId').value;
       if (!reportId) return;
       
-      showCustomAlert('この申請を「承認」します。よろしいですか？', function() { // (v18)
+      showCustomAlert('この申請を「承認」します。よろしいですか？', function() {
         showLoading(true, '承認処理中...');
         google.script.run
           .withSuccessHandler(function(result) {
             showLoading(false);
-            showCustomAlert(result.message, function() { // (v18)
+            showCustomAlert(result.message, function() {
               showView('view-B-approval-list');
             });
           })
@@ -1221,7 +1254,7 @@
       var reportId = document.getElementById('C-reportId').value;
       if (!reportId) return;
       
-      showCustomPrompt('差戻し理由を入力してください（必須）:', function(reason) { // (v18)
+      showCustomPrompt('差戻し理由を入力してください（必須）:', function(reason) {
         if (!reason) {
           return;
         }
@@ -1230,7 +1263,7 @@
         google.script.run
            .withSuccessHandler(function(result) {
             showLoading(false);
-            showCustomAlert(result.message, function() { // (v18)
+            showCustomAlert(result.message, function() {
               showView('view-B-approval-list');
             });
           })
@@ -1264,20 +1297,18 @@
       var expenses = (data && data.expenses) ? data.expenses : [];
       
       if (reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">精算対象の「承認済」申請はありません。</td></tr>'; // (v20: colspan変更)
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">精算対象の「承認済」申請はありません。</td></tr>';
         updateTotalSelectedAmountD();
         return;
       }
       
-      // 日付の昇順でソート
       reports.sort(function(a, b) {
         return (a['日付'] || '').localeCompare(b['日付'] || '');
       });
       
-      // 経費データをレポートIDで集計
       var expensesMap = {};
       expenses.forEach(function(ex) {
-        var rId = ex['経費ID']; // (v20: キー名変更)
+        var rId = ex['経費ID'];
         if (!expensesMap[rId]) {
           expensesMap[rId] = [];
         }
@@ -1286,7 +1317,7 @@
       
       reports.forEach(function(report) {
         var tr = document.createElement('tr');
-        var reportId = report['経費ID']; // (v20: キー名変更)
+        var reportId = report['経費ID'];
         var totalExpense = parseFloat(report['合計経費']) || 0;
         var date = report['日付'];
         
@@ -1300,7 +1331,7 @@
                      'onchange="updateTotalSelectedAmountD()">' +
           '</td>' +
           '<td>' + date + '</td>' +
-          '<td>' + (report['件名'] || 'N/A') + '</td>' + // (v20: 追加)
+          '<td>' + (report['件名'] || 'N/A') + '</td>' +
           '<td>' + formatNumber(totalExpense) + '</td>' +
           '<td><small>' + (expenseDetails || '(経費なし)') + '</small></td>' +
           '<td><small>' + String(reportId).substring(0, 8) + '...</small></td>';
@@ -1342,18 +1373,18 @@
       });
       
       if (selectedIds.length === 0) {
-        showCustomAlert('精算申請する申請を選択してください。'); // (v20: 修正)
+        showCustomAlert('精算申請する申請を選択してください。');
         return;
       }
       
-      var confirmMessage = '選択した ' + selectedIds.length + ' 件の申請を経理に精算申請します。\nよろしいですか？'; // (v20: 修正)
+      var confirmMessage = '選択した ' + selectedIds.length + ' 件の申請を経理に精算申請します。\nよろしいですか？';
       
-      showCustomAlert(confirmMessage, function() { // (v18)
+      showCustomAlert(confirmMessage, function() {
         showLoading(true, '精算申請を送信中...');
         google.script.run
           .withSuccessHandler(function(result) {
             showLoading(false);
-            showCustomAlert(result.message, function() { // (v18)
+            showCustomAlert(result.message, function() {
               loadApprovedExpensesD();
             });
           })
@@ -1384,13 +1415,13 @@
       tbody.innerHTML = '';
 
       if (!reports || reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">申請データはありません。</td></tr>'; // (v20: colspan変更)
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center">申請データはありません。</td></tr>';
         return;
       }
       
       reports.forEach(function(report) {
         var tr = document.createElement('tr');
-        var rId = report['経費ID']; // (v20: キー名変更)
+        var rId = report['経費ID'];
         var status = report['承認ステータス'];
         
         var statusBadge = '';
@@ -1403,7 +1434,6 @@
           default: statusBadge = '<span class="badge bg-secondary">' + status + '</span>';
         }
 
-        // 編集/表示ボタン
         var buttons = '';
         if (status === '一時保存' || status === '差戻し') {
           buttons = '<button class="btn btn-sm btn-primary" onclick="handleEditReportE(\'' + rId + '\')"><i class="bi bi-pencil"></i> 編集</button>';
@@ -1413,7 +1443,7 @@
         
         tr.innerHTML = 
           '<td>' + (report['日付'] || '') + '</td>' +
-          '<td>' + (report['件名'] || 'N/A') + '</td>' + // (v20: 追加)
+          '<td>' + (report['件名'] || 'N/A') + '</td>' +
           '<td>' + statusBadge + '</td>' +
           '<td>' + formatNumber(report['合計経費']) + '</td>' +
           '<td><small>' + (report['備考'] || '') + '</small></td>' +
@@ -1433,7 +1463,7 @@
      * (E) 編集ボタンクリック時の処理 (v18)
      */
     function handleEditReportE(reportId) {
-      showCustomAlert('この申請データを編集します。入力中の内容は破棄されますが、よろしいですか？', function() { // (v18)
+      showCustomAlert('この申請データを編集します。入力中の内容は破棄されますが、よろしいですか？', function() {
         showLoading(true, '編集データを読み込み中...');
         google.script.run
           .withSuccessHandler(onLoadReportForEditSuccessA)
@@ -1458,23 +1488,18 @@
         var data = result.data;
         var h = data.header;
         
-        // 1. フォーム(A)をリセット
         resetFormA();
         
-        // 2. (v20: 経費データをセット)
         currentExpenses = data.expenses || [];
 
-        // 3. (v20: 経費リストを描画)
         renderExpenseListA();
         
-        // 4. ヘッダー情報をフォームにセット
         document.getElementById('A-reportId').value = h['経費ID'] || '';
         document.getElementById('A-date').value = h['日付'] ?
           h['日付'].replace(/\//g, '-') : getTodayString();
-        document.getElementById('A-title').value = h['件名'] || ''; // (v20: 追加)
+        document.getElementById('A-title').value = h['件名'] || '';
         document.getElementById('A-remarks').value = h['備考'] || '';
         
-        // (v15) 差戻し理由を表示
         var reasonDiv = document.getElementById('A-rejection-reason');
         if (h['差戻し理由']) {
           reasonDiv.textContent = '差戻し理由: ' + h['差戻し理由'];
@@ -1483,9 +1508,6 @@
           reasonDiv.style.display = 'none';
         }
         
-        // (v20: 走行距離・時間計算 削除)
-        
-        // 6. (A)画面に遷移
         showView('view-A-expense-report');
       } else {
         var errorMsg = (result && result.message) ?
