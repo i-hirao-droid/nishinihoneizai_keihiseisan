@@ -269,12 +269,18 @@ function saveOrSubmitExpenseReport(data, status) {
 */
 function uploadBase64Image(base64Image) {
   try {
-    var settings = getSettings_();
-    var folderId = settings.RECEIPT_FOLDER_ID;
+    // ▼▼▼ 修正箇所 ▼▼▼
+    // フォルダIDをコードに直接埋め込みます。
+    // "ここにあなたのフォルダID" の部分を、実際のフォルダID (例: "1aBCd_efgHIJk-lmnOPqrSTUvwxyz") に置き換えてください。
+    var folderId = "1VQgPXronOxngn40uiUVK2eRUPTWSWS4I"; 
+    // ▲▲▲ 修正箇所 ▲▲▲
 
-    if (!folderId) {
-      throw new Error('設定シート (RECEIPT_FOLDER_ID) を確認してください。');
-    }
+    // (不要になった設定シートの読み込みとチェックを削除)
+    // var settings = getSettings_();
+    // var folderId = settings.RECEIPT_FOLDER_ID;
+    // if (!folderId) {
+    //   throw new Error('設定シート (RECEIPT_FOLDER_ID) を確認してください。');
+    // }
 
     // 1. 画像デコードとDrive保存
     var blob = Utilities.newBlob(
@@ -351,7 +357,8 @@ function getReportDetails(reportId) {
     var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER); // (v23: ss引数を削除)
     var areaMap = {};
     areaMaster.forEach(function(item) {
-      areaMap[item['地域区分 (コード)']] = item['地域区分名'];
+      // ★★★ 修正箇所 (スプレッドシートのヘッダー名 '地域区分' に合わせる) ★★★
+      areaMap[item['地域区分']] = item['地域区分名'];
     });
     
     expenses = expenses.map(function(exp) {
@@ -365,7 +372,7 @@ function getReportDetails(reportId) {
         receiptUrl: exp['領収書URL'],
         remarks: exp['備考'],
         useDate: exp['利用日'],
-        itemName: expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
+         itemName: expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
         areaCode: areaCode, // (v21: 取得したエリアコード)
         areaName: areaMap[areaCode] || '' // (v21: 要件3-5 エリア名に変換)
       };
@@ -504,7 +511,8 @@ function getApprovedExpenses() {
   var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER); // (v23: ss引数を削除)
   var areaMap = {};
   areaMaster.forEach(function(item) {
-    areaMap[item['地域区分 (コード)']] = item['地域区分名'];
+    // ★★★ 修正箇所 (スプレッドシートのヘッダー名 '地域区分' に合わせる) ★★★
+    areaMap[item['地域区分']] = item['地域区分名'];
   });
   
   approvedExpenses = approvedExpenses.map(function(exp) {
@@ -585,7 +593,7 @@ function submitFinalExpenses(reportIds) {
     
     if (updatedCount === 0) {
       throw new Error('対象のデータが見つかりませんでした。');
-    }
+  t }
     
     var settings = getSettings_();
     var accountingEmail = settings.ACCOUNTING_EMAIL;
