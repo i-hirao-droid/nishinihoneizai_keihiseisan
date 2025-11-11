@@ -151,7 +151,7 @@ function getSettings_() {
 // -----------------------------------------------
 
 /**
- * 経費精算の保存または申請 (v20: 日報機能を削除 / v21: areaCode追加, 日当重複チェック / v23: データID使用)
+ * 経費精算の保存または申請 (v20: 日報機能を削除 / v21: areaCode追加, 日当重複チェック / v23: データID使用 / v24: 税率・税抜追加)
  * @param {object} data { header, expenses }
  * @param {string} status "一時保存" / "申請中"
  * @returns {object} { status: "success", message: "..." }
@@ -209,15 +209,18 @@ function saveOrSubmitExpenseReport(data, status) {
       if (!expenseId || expenseId.startsWith('temp_')) {
           expenseId = 'EXP-' + Utilities.getUuid();
       }
+      // (v24: 修正) 税率・税抜き金額を追加
       return [
         reportId, // 経費ID (A)
         expenseId, // 明細ID (B)
         exp.itemCode, // 経費項目コード (C)
-        exp.amount, // 金額 (D)
+        exp.amount, // 金額 (D) (税込)
         exp.receiptUrl, // 領収書URL (E)
         exp.remarks, // 備考 (F)
         exp.useDate, // 利用日 (G) (yyyy-MM-dd)
-        exp.areaCode || null // (v21: 要件2-3 エリアコード (H))
+        exp.areaCode || null, // (v21: 要件2-3 エリアコード (H))
+        exp.taxRate, // (v24: 消費税率 (I))
+        exp.preTaxAmount // (v24: 税抜き金額 (J))
       ];
     });
 
@@ -327,7 +330,7 @@ function getPendingReports() {
 }
 
 /**
- * (C) 特定の申請の詳細データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応)
+ * (C) 特定の申請の詳細データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応 / v24: 税率・税抜追加)
  */
 function getReportDetails(reportId) {
   try {
@@ -361,6 +364,7 @@ function getReportDetails(reportId) {
       areaMap[item['地域区分']] = item['地域区分名'];
     });
     
+    // (v24: 修正) 税率・税抜き金額を返すように修正
     expenses = expenses.map(function(exp) {
       // (v21: 要件2-3 エリアコードを取得)
       var areaCode = exp['エリアコード']; 
@@ -372,9 +376,11 @@ function getReportDetails(reportId) {
         receiptUrl: exp['領収書URL'],
         remarks: exp['備考'],
         useDate: exp['利用日'],
-         itemName: expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
+        itemName: expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
         areaCode: areaCode, // (v21: 取得したエリアコード)
-        areaName: areaMap[areaCode] || '' // (v21: 要件3-5 エリア名に変換)
+        areaName: areaMap[areaCode] || '', // (v21: 要件3-5 エリア名に変換)
+        taxRate: exp['消費税率'], // (v24: 消費税率)
+        preTaxAmount: exp['税抜き金額'] // (v24: 税抜き金額)
       };
     });
 
@@ -475,7 +481,7 @@ function rejectReport(reportId, rejectionReason) {
 // -----------------------------------------------
 
 /**
- * (D) 承認済みの経費データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応)
+ * (D) 承認済みの経費データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応 / v24: 税率・税抜追加)
  */
 function getApprovedExpenses() {
   var userInfo = getUserInfo_();
@@ -505,7 +511,7 @@ function getApprovedExpenses() {
   var expenseItemsMap = {};
   expenseItemsMaster.forEach(function(item) {
     expenseItemsMap[item['経費項目コード']] = item['経費項目'];
-  });
+    });
 
   // (v21: エリアマスタ)
   var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER); // (v23: ss引数を削除)
@@ -515,13 +521,28 @@ function getApprovedExpenses() {
     areaMap[item['地域区分']] = item['地域区分名'];
   });
   
+  // (v24: 修正) 返すデータを明示的に構築
   approvedExpenses = approvedExpenses.map(function(exp) {
-    exp['itemName'] = expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'];
-    // (v21: 取得)
+    // exp は getSheetData_ から返されたオブジェクト（シートの行データ）
     var areaCode = exp['エリアコード'];
-    exp['areaCode'] = areaCode;
-    exp['areaName'] = areaMap[areaCode] || '';
-    return exp;
+    
+    // 必要なデータを明示的に新しいオブジェクトに詰める (getReportDetails との互換性のため)
+    return {
+      '経費ID': exp['経費ID'],
+      '明細ID': exp['明細ID'],
+      '経費項目コード': exp['経費項目コード'],
+      '金額': exp['金額'],
+      '領収書URL': exp['領収書URL'],
+      '備考': exp['備考'],
+      '利用日': exp['利用日'],
+      'エリアコード': areaCode,
+      '消費税率': exp['消費税率'], // (v24: 追加)
+      '税抜き金額': exp['税抜き金額'], // (v24: 追加)
+      
+      // 以下はクライアントでの表示用に追加
+      'itemName': expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
+      'areaName': areaMap[areaCode] || ''
+    };
   });
 
   return {
@@ -593,7 +614,7 @@ function submitFinalExpenses(reportIds) {
     
     if (updatedCount === 0) {
       throw new Error('対象のデータが見つかりませんでした。');
-  t }
+    }
     
     var settings = getSettings_();
     var accountingEmail = settings.ACCOUNTING_EMAIL;
@@ -625,7 +646,7 @@ function submitFinalExpenses(reportIds) {
 // -----------------------------------------------
 
 /**
- * (E) 自分の申請一覧を取得 (v20: 修正 / v23: マスタ分離対応)
+ * (E) 自分の申請一覧を取得 (v20: 修正 / v23: マスタ分離対応 / v25: ソート順変更)
  */
 function getMyReports() {
   try {
@@ -657,8 +678,24 @@ function getMyReports() {
       }
     }
     
+    // (v25: 修正) クライアント側でグループ化しやすいように、ステータス順 -> 日付降順でソート
+    var statusOrder = {
+      '一時保存': 1,
+      '差戻し': 2,
+      '申請中': 3,
+      '承認済': 4,
+      '精算申請済': 5
+    };
+
     myReports.sort(function(a, b) {
-      return b['日付'].localeCompare(a['日付']);
+      var statusA = statusOrder[a['承認ステータス']] || 99;
+      var statusB = statusOrder[b['承認ステータス']] || 99;
+
+      if (statusA !== statusB) {
+        return statusA - statusB; // 1. ステータス順 (昇順: 一時保存が先頭)
+      } else {
+        return (b['日付'] || '').localeCompare(a['日付'] || ''); // 2. 日付 (降順: 新しいものが上)
+      }
     });
     
     return myReports;
@@ -679,6 +716,7 @@ function getReportDataForEdit(reportId) {
     var userId = userInfo.employeeInfo.id;
     
     // (v21: getReportDetailsは既にareaCode/areaNameを含むよう修正済み)
+    // (v24: getReportDetailsは既にtaxRate/preTaxAmountを含むよう修正済み)
     var details = getReportDetails(reportId); 
     
     if (!details.header || !details.header['経費ID']) {
