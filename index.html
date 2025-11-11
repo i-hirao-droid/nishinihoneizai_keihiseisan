@@ -110,7 +110,6 @@
 
   <div class="container-fluid p-3 p-md-4">
 
-    <!-- (A) 経費申請ビュー -->
     <div id="view-A-expense-report" class="app-view">
       <h3 class="mb-3"><i class="bi bi-pencil-square"></i> 経費申請・編集</h3>
 
@@ -152,20 +151,17 @@
               <tr>
                 <th>利用日</th>
                 <th>経費項目</th>
-                <th>エリア</th> <!-- (v21: 新規) -->
-                <th>金額 (円)</th>
+                <th>エリア</th> <th>金額 (円)</th>
                 <th>備考</th>
                 <th style="width: 120px;">領収書</th>
                 <th style="width: 80px;">操作</th>
               </tr>
             </thead>
             <tbody id="A-expense-list-body">
-              <!-- (v21: colspan=7) -->
               <tr><td colspan="7" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>
             </tbody>
             <tfoot class="table-group-divider">
               <tr>
-                <!-- (v21: colspan=3) -->
                 <td colspan="3" class="text-end fw-bold">合計金額</td>
                 <td class="fw-bold text-danger fs-5" id="A-total-expense-amount">0 円</td>
                 <td colspan="3"></td>
@@ -188,7 +184,6 @@
       
     </div>
 
-    <!-- (B) 承認待ちビュー -->
     <div id="view-B-approval-list" class="app-view">
       <h3 class="mb-3"><i class="bi bi-check2-circle"></i> 承認待ち一覧</h3>
       <div class="card shadow-sm">
@@ -197,7 +192,6 @@
       </div>
     </div>
 
-    <!-- (C) 詳細ビュー -->
     <div id="view-C-report-detail" class="app-view">
       <h3 class="mb-3"><i class="bi bi-file-earmark-text"></i> 経費申請 詳細</h3>
       
@@ -245,8 +239,7 @@
               <tr>
                  <th>利用日</th>
                 <th>経費項目</th>
-                <th>エリア</th> <!-- (v21: 新規) -->
-                <th>金額 (円)</th>
+                <th>エリア</th> <th>金額 (円)</th>
                 <th>備考</th>
                 <th>領収書</th>
               </tr>
@@ -268,7 +261,6 @@
       </div>
     </div>
 
-    <!-- (D) 経費精算まとめビュー -->
     <div id="view-D-expense-summary" class="app-view">
       <h3 class="mb-3"><i class="bi bi-cash-coin"></i> 経費精算まとめ (最終申請)</h3>
       
@@ -314,7 +306,6 @@
       </div>
     </div>
 
-    <!-- (E) 申請一覧ビュー -->
     <div id="view-E-my-reports" class="app-view">
       <h3 class="mb-3"><i class="bi bi-list-task"></i> 申請一覧 (自分)</h3>
       <div class="card shadow-sm">
@@ -347,7 +338,6 @@
 
   </div>
   
-  <!-- ローディングオーバーレイ -->
   <div id="loading-overlay">
     <div id="loading-spinner">
       <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
@@ -358,7 +348,6 @@
   </div>
 
 
-  <!-- (A) 経費明細モーダル -->
   <div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -382,19 +371,16 @@
                   </select>
               </div>
     
-              <!-- (v21: 新規) エリア選択 (要件3-2) -->
               <div class="col-md-6" id="M-area-wrapper" style="display: none;">
                 <label for="M-areaCode" class="form-label">エリア <span class="text-danger">*</span></label>
                 <select class="form-select" id="M-areaCode">
                   <option value="">選択してください</option>
-                  <!-- loadAreaMasterA() で読み込む -->
-                </select>
+                  </select>
               </div>
 
                <div class="col-md-6">
                 <label for="M-amount" class="form-label">金額 (円) <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" id="M-amount" required>
-                <!-- (v21: 新規) 上限額表示 (要件3-2) -->
                 <small id="M-amount-limit-display" class="form-text text-muted"></small>
               </div>
               
@@ -443,7 +429,6 @@
     </div>
   </div>
 
-  <!-- カスタムアラートモーダル -->
   <div class="modal fade" id="customAlertModal" tabindex="-1" aria-labelledby="customAlertModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -461,7 +446,6 @@
     </div>
   </div>
 
-  <!-- カスタムプロンプトモーダル -->
   <div class="modal fade" id="customPromptModal" tabindex="-1" aria-labelledby="customPromptModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -604,7 +588,8 @@
       AREA_MASTER_MAP = {}; // マップを初期化
       
       AREA_MASTER.forEach(function(item) {
-        var code = item['地域区分 (コード)'];
+        // ★★★ 修正箇所 (スプレッドシートのヘッダー名 '地域区分' に合わせる) ★★★
+        var code = item['地域区分'];
         var name = item['地域区分名'];
         
         var option = document.createElement('option');
@@ -1322,8 +1307,9 @@
       }
       
       // 2. エリア追加宿泊費
+      // ★★★ 修正箇所 (スプレッドシートのヘッダー名 '地域区分' に合わせる) ★★★
       var areaRule = AREA_MASTER.find(function(a) {
-        return String(a['地域区分 (コード)']) === String(areaCode);
+        return String(a['地域区分']) === String(areaCode);
       });
       var additionalLodging = (areaRule && areaRule['追加宿泊費']) ? parseFloat(areaRule['追加宿泊費']) : 0;
       
