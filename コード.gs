@@ -3,16 +3,25 @@
 // -----------------------------------------------
 
 // (v21: スクリプトプロパティからIDを取得)
-var SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+// (v23: データ用とマスタ用を分離)
+var DATA_SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+var MASTER_SPREADSHEET_ID = PropertiesService.getScriptProperties().getProperty('MASTER_SPREADSHEET_ID');
 
-// シート名 (v20: 日報機能を削除)
+
+// シート名 (v20: 日報機能を削除 / v21: マスタ追加)
 var SHEET_NAMES = {
   SETTINGS: '設定',
   EMPLOYEES: '社員マスタ',
   EXPENSE_ITEMS: '経費項目マスタ',
-  REPORTS: '経費ヘッダー', // 「日報」から「経費ヘッダー」に変更
-  // ACTIVITIES: '行動明細', // 廃止
-  EXPENSES: '経費明細'
+  REPORTS: '経費ヘッダー', 
+  EXPENSES: '経費明細',
+  
+  // (v21: 新規追加マスタ)
+  TRAVEL_RULES: '出張旅費規定マスタ',
+  AREA_MASTER: '宿泊費エリアマスタ',
+  POSITION_MASTER: '役職マスタ',
+  DEPARTMENT_MASTER: '部門マスタ',
+  JOB_TYPE_MASTER: '職種区分マスタ'
 };
 
 // -----------------------------------------------
@@ -20,21 +29,36 @@ var SHEET_NAMES = {
 // -----------------------------------------------
 
 /**
- * WebアプリのGETリクエストハンドラ (v20: 修正)
+ * WebアプリのGETリクエストハンドラ (v20: 修正 / v21: マスタ読み込み拡張 / v23: マスタ分離対応)
  */
 function doGet(e) {
   var ui = HtmlService.createTemplateFromFile('index.html');
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID); // (v21: プロパティから取得したIDで開く)
+  // (v23: ssの即時オープンを削除)
   
-  // 1. ユーザー情報
+  // 1. ユーザー情報 (v21: 拡張)
   var userInfo = getUserInfo_();
-  // 2. 経費項目マスタ
-  var expenseItems = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS, ss);
+  
+  // 2. 経費項目マスタ (v23: ss引数を削除)
+  var expenseItems = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS);
+  
+  // (v21: 新規マスタ読み込み / v23: ss引数を削除)
+  var travelRules = getSheetData_(SHEET_NAMES.TRAVEL_RULES);
+  var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER);
+  var positionMaster = getSheetData_(SHEET_NAMES.POSITION_MASTER);
+  var departmentMaster = getSheetData_(SHEET_NAMES.DEPARTMENT_MASTER);
+  var jobTypeMaster = getSheetData_(SHEET_NAMES.JOB_TYPE_MASTER);
   
   // 3. テンプレートにデータを渡す
-  ui.employeeInfo = JSON.stringify(userInfo.employeeInfo); // ユーザー情報
+  ui.employeeInfo = JSON.stringify(userInfo.employeeInfo); // ユーザー情報 (v21: 拡張された情報を含む)
   ui.isManager = userInfo.isManager; // 管理者フラグ
   ui.expenseItems = JSON.stringify(expenseItems); // 経費項目
+  
+  // (v21: 新規マスタを渡す)
+  ui.travelRules = JSON.stringify(travelRules);
+  ui.areaMaster = JSON.stringify(areaMaster);
+  ui.positionMaster = JSON.stringify(positionMaster);
+  ui.departmentMaster = JSON.stringify(departmentMaster);
+  ui.jobTypeMaster = JSON.stringify(jobTypeMaster);
   
   // 4. HTMLを生成
   return ui.evaluate()
@@ -43,31 +67,41 @@ function doGet(e) {
 }
 
 /**
- * ログインユーザーの情報を取得 (v2)
- * @returns {object} { employeeInfo: { id, name }, isManager: boolean }
+ * ログインユーザーの情報を取得 (v2 / v21: 取得項目拡張 / v23: マスタ分離対応)
+ * @returns {object} { employeeInfo: { id, name, positionCode, deptCode, jobTypeCode ... }, isManager: boolean }
  */
 function getUserInfo_() {
   var email = Session.getActiveUser().getEmail();
   
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var data = getSheetData_(SHEET_NAMES.EMPLOYEES, ss);
+  // (v23: ssの即時オープンを削除)
+  var data = getSheetData_(SHEET_NAMES.EMPLOYEES); // (v23: ss引数を削除)
   
   var userInfo = {
     employeeInfo: {
       id: null,
       name: 'ゲスト',
-      email: email
+      email: email,
+      positionCode: null, // (v21: 役職コード)
+      deptCode: null, // (v21: 所属部門コード)
+      jobTypeCode: null // (v21: 職種区分コード)
     },
     isManager: false
   };
 
   for (var i = 0; i < data.length; i++) {
+    // (v21: キーを要件定義の「アドレス」に変更)
     if (data[i]['アドレス'] === email) {
       userInfo.employeeInfo.id = data[i]['社員番号'];
       userInfo.employeeInfo.name = data[i]['社員名'];
       
-      var position = data[i]['役職名'];
-      if (position && (position.indexOf('部長') > -1 || position.indexOf('課長') > -1)) {
+      // (v21: 拡張項目を取得)
+      userInfo.employeeInfo.positionCode = data[i]['役職 (コード)'];
+      userInfo.employeeInfo.deptCode = data[i]['所属部門 (コード)'];
+      userInfo.employeeInfo.jobTypeCode = data[i]['職種区分 (コード)'];
+
+      // (v21: 役職名での判定を継続)
+      var positionName = data[i]['役職名']; 
+      if (positionName && (positionName.indexOf('部長') > -1 || positionName.indexOf('課長') > -1)) {
         userInfo.isManager = true;
       }
       break;
@@ -77,7 +111,7 @@ function getUserInfo_() {
 }
 
 /**
- * 設定シートをK-Vオブジェクトで取得 (キャッシュ対応) (v9 修正)
+ * 設定シートをK-Vオブジェクトで取得 (キャッシュ対応) (v9 修正 / v23: データID使用)
  * @returns {object} 設定の K-V
  */
 function getSettings_() {
@@ -89,7 +123,7 @@ function getSettings_() {
     return JSON.parse(cached);
   }
 
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(DATA_SPREADSHEET_ID); // (v23: データIDを使用)
   var sheet = ss.getSheetByName(SHEET_NAMES.SETTINGS);
   if (!sheet || sheet.getLastRow() < 2) {
     return {};
@@ -113,11 +147,11 @@ function getSettings_() {
 
 
 // -----------------------------------------------
-// (A) 経費精算入力 (v20: 大幅修正)
+// (A) 経費精算入力 (v20: 大幅修正 / v21: 拡張)
 // -----------------------------------------------
 
 /**
- * 経費精算の保存または申請 (v20: 日報機能を削除)
+ * 経費精算の保存または申請 (v20: 日報機能を削除 / v21: areaCode追加, 日当重複チェック / v23: データID使用)
  * @param {object} data { header, expenses }
  * @param {string} status "一時保存" / "申請中"
  * @returns {object} { status: "success", message: "..." }
@@ -126,7 +160,7 @@ function saveOrSubmitExpenseReport(data, status) {
   var lock = LockService.getScriptLock();
   lock.waitLock(15000); 
   
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  var ss = SpreadsheetApp.openById(DATA_SPREADSHEET_ID); // (v23: データIDを使用)
   var userInfo = getUserInfo_();
   
   try {
@@ -141,8 +175,20 @@ function saveOrSubmitExpenseReport(data, status) {
     deleteReportData_(reportId, ss); 
     
     var totalExpenseAmount = 0;
+    var allowanceCount = 0; // (v21: 日当(101)のカウント用)
+
     for (var k = 0; k < expenses.length; k++) {
       totalExpenseAmount += parseFloat(expenses[k].amount || 0);
+      
+      // (v21: 要件2-4 日当(101)の重複チェック)
+      if (String(expenses[k].itemCode) === '101') {
+        allowanceCount++;
+      }
+    }
+
+    // (v21: 要件2-4 日当(101)が2件以上あればエラー)
+    if (allowanceCount > 1) {
+      throw new Error('日当(101)が複数登録されています。明細を確認してください。');
     }
 
     var headerRow = [
@@ -170,7 +216,8 @@ function saveOrSubmitExpenseReport(data, status) {
         exp.amount, // 金額 (D)
         exp.receiptUrl, // 領収書URL (E)
         exp.remarks, // 備考 (F)
-        exp.useDate // 利用日 (G) (yyyy-MM-dd)
+        exp.useDate, // 利用日 (G) (yyyy-MM-dd)
+        exp.areaCode || null // (v21: 要件2-3 エリアコード (H))
       ];
     });
 
@@ -204,6 +251,7 @@ function saveOrSubmitExpenseReport(data, status) {
     return { status: "success", message: status + "が完了しました。", reportId: reportId };
   } catch (e) {
     Logger.log('saveOrSubmitExpenseReport エラー: ' + e);
+    // (v21: エラーメッセージを具体的に返す)
     return { status: "error", message: "保存/申請中にエラーが発生しました: " + e.message };
   } finally {
     lock.releaseLock();
@@ -256,15 +304,15 @@ function uploadBase64Image(base64Image) {
 
 
 // -----------------------------------------------
-// (B) (C) 上長・閲覧用 (v20: 修正あり)
+// (B) (C) 上長・閲覧用 (v20: 修正あり / v21: 拡張)
 // -----------------------------------------------
 
 /**
- * (B) 承認待ちの申請一覧を取得 (v20: 修正)
+ * (B) 承認待ちの申請一覧を取得 (v20: 修正 / v23: マスタ分離対応)
  */
 function getPendingReports() {
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-  var data = getSheetData_(SHEET_NAMES.REPORTS, ss); 
+  // (v23: ssの即時オープンを削除)
+  var data = getSheetData_(SHEET_NAMES.REPORTS); // (v23: ss引数を削除)
   
   var pendingReports = data.filter(function(row) {
     return row['承認ステータス'] === '申請中';
@@ -273,7 +321,7 @@ function getPendingReports() {
 }
 
 /**
- * (C) 特定の申請の詳細データを取得 (v20: 修正)
+ * (C) 特定の申請の詳細データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応)
  */
 function getReportDetails(reportId) {
   try {
@@ -281,25 +329,35 @@ function getReportDetails(reportId) {
       throw new Error('経費IDが指定されていません。');
     }
     
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    // (v23: ssの即時オープンを削除)
     
-    var headerData = getSheetData_(SHEET_NAMES.REPORTS, ss); 
+    var headerData = getSheetData_(SHEET_NAMES.REPORTS); // (v23: ss引数を削除)
     var header = headerData.find(function(row) {
       return String(row['経費ID']) === String(reportId); 
     });
     
-    var expensesData = getSheetData_(SHEET_NAMES.EXPENSES, ss);
+    var expensesData = getSheetData_(SHEET_NAMES.EXPENSES); // (v23: ss引数を削除)
     var expenses = expensesData.filter(function(row) {
       return String(row['経費ID']) === String(reportId); 
     });
 
-    var expenseItemsMaster = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS, ss);
+    var expenseItemsMaster = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS); // (v23: ss引数を削除)
     var expenseItemsMap = {};
     expenseItemsMaster.forEach(function(item) {
       expenseItemsMap[item['経費項目コード']] = item['経費項目'];
     });
+
+    // (v21: 要件3-5 エリアマスタを取得してマップを作成)
+    var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER); // (v23: ss引数を削除)
+    var areaMap = {};
+    areaMaster.forEach(function(item) {
+      areaMap[item['地域区分 (コード)']] = item['地域区分名'];
+    });
     
     expenses = expenses.map(function(exp) {
+      // (v21: 要件2-3 エリアコードを取得)
+      var areaCode = exp['エリアコード']; 
+      
       return {
         expenseId: exp['明細ID'],
         itemCode: exp['経費項目コード'],
@@ -308,6 +366,8 @@ function getReportDetails(reportId) {
         remarks: exp['備考'],
         useDate: exp['利用日'],
         itemName: expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'],
+        areaCode: areaCode, // (v21: 取得したエリアコード)
+        areaName: areaMap[areaCode] || '' // (v21: 要件3-5 エリア名に変換)
       };
     });
 
@@ -325,14 +385,14 @@ function getReportDetails(reportId) {
 }
 
 /**
- * (B) 申請ステータスを更新 (内部関数) (v20: 修正)
+ * (B) 申請ステータスを更新 (内部関数) (v20: 修正 / v23: データID使用)
  */
 function updateReportStatus_(reportId, newStatus, rejectionReason) {
   var lock = LockService.getScriptLock();
   lock.waitLock(15000);
   
   try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var ss = SpreadsheetApp.openById(DATA_SPREADSHEET_ID); // (v23: データIDを使用)
     var sheet = ss.getSheetByName(SHEET_NAMES.REPORTS); 
     
     if (!sheet || sheet.getLastRow() < 2) {
@@ -404,19 +464,19 @@ function rejectReport(reportId, rejectionReason) {
 
 
 // -----------------------------------------------
-// (D) 経費精算用 (v20: 修正あり)
+// (D) 経費精算用 (v20: 修正あり / v21: 拡張)
 // -----------------------------------------------
 
 /**
- * (D) 承認済みの経費データを取得 (v20: 修正)
+ * (D) 承認済みの経費データを取得 (v20: 修正 / v21: areaCode取得 / v23: マスタ分離対応)
  */
 function getApprovedExpenses() {
   var userInfo = getUserInfo_();
   var userId = userInfo.employeeInfo.id;
   
-  var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+  // (v23: ssの即時オープンを削除)
   
-  var allHeaders = getSheetData_(SHEET_NAMES.REPORTS, ss);
+  var allHeaders = getSheetData_(SHEET_NAMES.REPORTS); // (v23: ss引数を削除)
   var approvedReports = allHeaders.filter(function(row) {
     return String(row['申請者社員番号']) === String(userId) && row['承認ステータス'] === '承認済';
   });
@@ -427,21 +487,32 @@ function getApprovedExpenses() {
   
   var approvedReportIds = approvedReports.map(function(r) { return r['経費ID']; });
   
-  var allExpenses = getSheetData_(SHEET_NAMES.EXPENSES, ss);
+  var allExpenses = getSheetData_(SHEET_NAMES.EXPENSES); // (v23: ss引数を削除)
   var approvedExpenses = allExpenses.filter(function(exp) {
     return approvedReportIds.some(function(approvedId) {
       return String(exp['経費ID']) === String(approvedId);
     });
   });
 
-  var expenseItemsMaster = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS, ss);
+  var expenseItemsMaster = getSheetData_(SHEET_NAMES.EXPENSE_ITEMS); // (v23: ss引数を削除)
   var expenseItemsMap = {};
   expenseItemsMaster.forEach(function(item) {
     expenseItemsMap[item['経費項目コード']] = item['経費項目'];
   });
+
+  // (v21: エリアマスタ)
+  var areaMaster = getSheetData_(SHEET_NAMES.AREA_MASTER); // (v23: ss引数を削除)
+  var areaMap = {};
+  areaMaster.forEach(function(item) {
+    areaMap[item['地域区分 (コード)']] = item['地域区分名'];
+  });
   
   approvedExpenses = approvedExpenses.map(function(exp) {
     exp['itemName'] = expenseItemsMap[exp['経費項目コード']] || exp['経費項目コード'];
+    // (v21: 取得)
+    var areaCode = exp['エリアコード'];
+    exp['areaCode'] = areaCode;
+    exp['areaName'] = areaMap[areaCode] || '';
     return exp;
   });
 
@@ -452,7 +523,7 @@ function getApprovedExpenses() {
 }
 
 /**
- * (D) 最終的な経費精算申請 (v20: 修正)
+ * (D) 最終的な経費精算申請 (v20: 修正 / v23: データID使用)
  */
 function submitFinalExpenses(reportIds) {
   if (!reportIds || reportIds.length === 0) {
@@ -463,7 +534,7 @@ function submitFinalExpenses(reportIds) {
   lock.waitLock(15000);
   
   try {
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    var ss = SpreadsheetApp.openById(DATA_SPREADSHEET_ID); // (v23: データIDを使用)
     var sheet = ss.getSheetByName(SHEET_NAMES.REPORTS);
     
     if (!sheet || sheet.getLastRow() < 2) {
@@ -542,11 +613,11 @@ function submitFinalExpenses(reportIds) {
 
 
 // -----------------------------------------------
-// (E) 申請一覧用 (v20: 修正あり)
+// (E) 申請一覧用 (v20: 修正あり / v21: 拡張)
 // -----------------------------------------------
 
 /**
- * (E) 自分の申請一覧を取得 (v20: 修正)
+ * (E) 自分の申請一覧を取得 (v20: 修正 / v23: マスタ分離対応)
  */
 function getMyReports() {
   try {
@@ -557,8 +628,8 @@ function getMyReports() {
       return []; 
     }
 
-    var ss = SpreadsheetApp.openById(SPREADSHEET_ID);
-    var allData = getSheetData_(SHEET_NAMES.REPORTS, ss);
+    // (v23: ssの即時オープンを削除)
+    var allData = getSheetData_(SHEET_NAMES.REPORTS); // (v23: ss引数を削除)
 
     var idxApplicant = '申請者社員番号';
     
@@ -591,14 +662,16 @@ function getMyReports() {
 }
 
 /**
- * (E) 編集用に申請データを取得 (v20: 修正)
- */
+ * (E) 編集用に申請データを取得 (v20: 修正 / v21: 拡張)
+ * (v21: getReportDetailsが拡張されているため、この関数は修正不要)
+*/
 function getReportDataForEdit(reportId) {
   try {
     var userInfo = getUserInfo_();
     var userId = userInfo.employeeInfo.id;
     
-    var details = getReportDetails(reportId);
+    // (v21: getReportDetailsは既にareaCode/areaNameを含むよう修正済み)
+    var details = getReportDetails(reportId); 
     
     if (!details.header || !details.header['経費ID']) {
       Logger.log('getReportDataForEdit: getReportDetails が空のヘッダーを返しました。ReportID: ' + reportId);
@@ -608,7 +681,7 @@ function getReportDataForEdit(reportId) {
     if (String(details.header['申請者社員番号']) !== String(userId)) {
       Logger.log('getReportDataForEdit: 権限エラー。 UserID: ' + userId + ', ReportApplicantID: ' + details.header['申請者社員番号']);
       return { status: "error", message: "この申請を編集する権限がありません。" };
-  A }
+    }
     
     var status = details.header['承認ステータス'];
     if (status !== '一時保存' && status !== '差戻し') {
@@ -629,16 +702,31 @@ function getReportDataForEdit(reportId) {
 // -----------------------------------------------
 
 /**
- * 汎用: シートデータをオブジェクト配列に変換 (v17 修正: 日付フォーマット yyyy/MM/dd)
+ * 汎用: シートデータをオブジェクト配列に変換 (v17 修正 / v23: ID自動選択)
  */
-function getSheetData_(sheetName, ss) {
-  if (!ss) {
-    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+function getSheetData_(sheetName) { // (v23: ss引数を削除)
+  var idToUse;
+  
+  // (v23: 'マスタ' が含まれるシート名は MASTER_SPREADSHEET_ID を使用)
+  if (sheetName.indexOf('マスタ') > -1) {
+    idToUse = MASTER_SPREADSHEET_ID;
+    if (!idToUse) {
+      Logger.log('エラー: スクリプトプロパティに MASTER_SPREADSHEET_ID が設定されていません。');
+      throw new Error('マスターSpreadsheet IDが設定されていません。');
+    }
+  } else {
+    idToUse = DATA_SPREADSHEET_ID;
+    if (!idToUse) {
+      Logger.log('エラー: スクリプトプロパティに SPREADSHEET_ID が設定されていません。');
+      throw new Error('データSpreadsheet IDが設定されていません。');
+    }
   }
+  
+  var ss = SpreadsheetApp.openById(idToUse);
   var sheet = ss.getSheetByName(sheetName);
   
   if (!sheet) {
-    Logger.log('シートが見つかりません: ' + sheetName);
+    Logger.log('シートが見つかりません: ' + sheetName + ' (ID: ' + idToUse + ')');
     return [];
   }
   
@@ -684,7 +772,7 @@ function getSheetData_(sheetName, ss) {
 }
 
 /**
- * 汎用: 特定の経費IDに関連するデータを削除 (v20: 修正)
+ * 汎用: 特定の経費IDに関連するデータを削除 (v20: 修正 / v23: データID使用)
  */
 function deleteReportData_(reportId, ss) {
   if (!reportId) {
@@ -692,7 +780,7 @@ function deleteReportData_(reportId, ss) {
   }
   
   if (!ss) {
-    ss = SpreadsheetApp.openById(SPREADSHEET_ID);
+    ss = SpreadsheetApp.openById(DATA_SPREADSHEET_ID); // (v23: データIDを使用)
   }
   
   var sheetsToDelete = [
