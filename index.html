@@ -7,7 +7,8 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
   
-  <title>経費精算システム</title> <style>
+  <title>経費精算システム</title>
+  <style>
     /* 読み込み中オーバーレイ */
     #loading-overlay {
       position: fixed;
@@ -57,20 +58,28 @@
     .modal {
       z-index: 10001;
     }
+    
+    /* (v21: 要件3-2) 上限超過時のスタイル */
+    .amount-over-limit {
+      background-color: #fff3cd; /* Bootstrap 'warning' light background */
+      border-color: #ffc107;
+    }
   </style>
 </head>
 <body>
 
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark sticky-top">
     <div class="container-fluid">
-      <a class="navbar-brand" href="#"><i class="bi bi-wallet2"></i> 経費精算システム</a> <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+      <a class="navbar-brand" href="#"><i class="bi bi-wallet2"></i> 経費精算システム</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto mb-2 mb-lg-0" id="nav-links">
      
           <li class="nav-item">
-            <a class="nav-link" href="#" data-view="view-A-expense-report"> <i class="bi bi-pencil-square"></i> 経費申請
+            <a class="nav-link" href="#" data-view="view-A-expense-report">
+              <i class="bi bi-pencil-square"></i> 経費申請
             </a>
           </li>
           <li class="nav-item">
@@ -101,6 +110,7 @@
 
   <div class="container-fluid p-3 p-md-4">
 
+    <!-- (A) 経費申請ビュー -->
     <div id="view-A-expense-report" class="app-view">
       <h3 class="mb-3"><i class="bi bi-pencil-square"></i> 経費申請・編集</h3>
 
@@ -142,6 +152,7 @@
               <tr>
                 <th>利用日</th>
                 <th>経費項目</th>
+                <th>エリア</th> <!-- (v21: 新規) -->
                 <th>金額 (円)</th>
                 <th>備考</th>
                 <th style="width: 120px;">領収書</th>
@@ -149,11 +160,13 @@
               </tr>
             </thead>
             <tbody id="A-expense-list-body">
-              <tr><td colspan="6" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>
+              <!-- (v21: colspan=7) -->
+              <tr><td colspan="7" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>
             </tbody>
             <tfoot class="table-group-divider">
               <tr>
-                <td colspan="2" class="text-end fw-bold">合計金額</td>
+                <!-- (v21: colspan=3) -->
+                <td colspan="3" class="text-end fw-bold">合計金額</td>
                 <td class="fw-bold text-danger fs-5" id="A-total-expense-amount">0 円</td>
                 <td colspan="3"></td>
               </tr>
@@ -173,9 +186,9 @@
         </div>
       </div>
       
-      </div>
+    </div>
 
-
+    <!-- (B) 承認待ちビュー -->
     <div id="view-B-approval-list" class="app-view">
       <h3 class="mb-3"><i class="bi bi-check2-circle"></i> 承認待ち一覧</h3>
       <div class="card shadow-sm">
@@ -184,7 +197,7 @@
       </div>
     </div>
 
-    
+    <!-- (C) 詳細ビュー -->
     <div id="view-C-report-detail" class="app-view">
       <h3 class="mb-3"><i class="bi bi-file-earmark-text"></i> 経費申請 詳細</h3>
       
@@ -232,6 +245,7 @@
               <tr>
                  <th>利用日</th>
                 <th>経費項目</th>
+                <th>エリア</th> <!-- (v21: 新規) -->
                 <th>金額 (円)</th>
                 <th>備考</th>
                 <th>領収書</th>
@@ -254,6 +268,7 @@
       </div>
     </div>
 
+    <!-- (D) 経費精算まとめビュー -->
     <div id="view-D-expense-summary" class="app-view">
       <h3 class="mb-3"><i class="bi bi-cash-coin"></i> 経費精算まとめ (最終申請)</h3>
       
@@ -279,7 +294,8 @@
                   <input class="form-check-input" type="checkbox" id="D-check-all" onchange="toggleAllCheckboxesD(this.checked)">
                 </th>
                 <th>日付</th>
-                <th>件名</th> <th>合計経費 (円)</th>
+                <th>件名</th>
+                <th>合計経費 (円)</th>
                 <th>経費詳細</th>
                 <th>ID</th>
               </tr>
@@ -288,7 +304,8 @@
               </tbody>
             <tfoot class="table-group-divider">
               <tr>
-                <td colspan="3" class="text-end fw-bold">選択合計</td> <td class="fw-bold text-danger fs-5" id="D-total-selected-amount">0 円</td>
+                <td colspan="3" class="text-end fw-bold">選択合計</td>
+                <td class="fw-bold text-danger fs-5" id="D-total-selected-amount">0 円</td>
                 <td colspan="2"></td>
               </tr>
             </tfoot>
@@ -297,6 +314,7 @@
       </div>
     </div>
 
+    <!-- (E) 申請一覧ビュー -->
     <div id="view-E-my-reports" class="app-view">
       <h3 class="mb-3"><i class="bi bi-list-task"></i> 申請一覧 (自分)</h3>
       <div class="card shadow-sm">
@@ -313,7 +331,8 @@
              <thead class="table-light">
               <tr>
                 <th>日付</th>
-                <th>件名</th> <th>ステータス</th>
+                <th>件名</th>
+                <th>ステータス</th>
                 <th>合計経費 (円)</th>
                 <th>備考</th>
                 <th>操作</th>
@@ -326,7 +345,10 @@
       </div>
     </div>
 
-  </div> <div id="loading-overlay">
+  </div>
+  
+  <!-- ローディングオーバーレイ -->
+  <div id="loading-overlay">
     <div id="loading-spinner">
       <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
         <span class="visually-hidden">Loading...</span>
@@ -336,6 +358,7 @@
   </div>
 
 
+  <!-- (A) 経費明細モーダル -->
   <div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -359,10 +382,22 @@
                   </select>
               </div>
     
+              <!-- (v21: 新規) エリア選択 (要件3-2) -->
+              <div class="col-md-6" id="M-area-wrapper" style="display: none;">
+                <label for="M-areaCode" class="form-label">エリア <span class="text-danger">*</span></label>
+                <select class="form-select" id="M-areaCode">
+                  <option value="">選択してください</option>
+                  <!-- loadAreaMasterA() で読み込む -->
+                </select>
+              </div>
+
                <div class="col-md-6">
                 <label for="M-amount" class="form-label">金額 (円) <span class="text-danger">*</span></label>
                 <input type="number" class="form-control" id="M-amount" required>
+                <!-- (v21: 新規) 上限額表示 (要件3-2) -->
+                <small id="M-amount-limit-display" class="form-text text-muted"></small>
               </div>
+              
               <div class="col-12">
                 <label for="M-remarks" class="form-label">備考（内容・訪問先など）</label>
                  <input type="text" class="form-control" id="M-remarks" placeholder="例: 駐車代 (〇〇商事様)">
@@ -408,6 +443,7 @@
     </div>
   </div>
 
+  <!-- カスタムアラートモーダル -->
   <div class="modal fade" id="customAlertModal" tabindex="-1" aria-labelledby="customAlertModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -425,6 +461,7 @@
     </div>
   </div>
 
+  <!-- カスタムプロンプトモーダル -->
   <div class="modal fade" id="customPromptModal" tabindex="-1" aria-labelledby="customPromptModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -451,12 +488,22 @@
     // --- グローバル変数 -------------------------------------------------
     
     // GASから渡されるデータ
-    var EMPLOYEE_INFO = <?!= employeeInfo ?>;
+    var EMPLOYEE_INFO = <?!= employeeInfo ?>; // (v21: 拡張。positionCode, jobTypeCodeなどを含む)
     var IS_MANAGER = <?!= isManager ?>;
     var EXPENSE_ITEMS_MASTER = <?!= expenseItems ?>;
     
+    // (v21: 新規マスタ) (要件3-1)
+    var TRAVEL_RULES_MASTER = <?!= travelRules ?>;
+    var AREA_MASTER = <?!= areaMaster ?>;
+    var POSITION_MASTER = <?!= positionMaster ?>;
+    var DEPARTMENT_MASTER = <?!= departmentMaster ?>;
+    var JOB_TYPE_MASTER = <?!= jobTypeMaster ?>;
+
+    // (v21: マスタのマップ)
+    var AREA_MASTER_MAP = {};
+    
     // (A) 経費申請用データ
-    var currentExpenses = []; // [ { expenseId, useDate, itemCode, amount, remarks, receiptUrl }, ... ]
+    var currentExpenses = []; // [ { expenseId, useDate, itemCode, amount, remarks, receiptUrl, areaCode }, ... ] (v21: areaCode追加)
     
     // (A) 経費モーダルのインスタンス
     var expenseModalInstance;
@@ -471,6 +518,9 @@
 
     // (v22: 新規) カメラのストリームを保持
     var currentStream = null;
+    
+    // (v21: 新規) 経費モーダルの現在の上限額
+    var currentExpenseLimit = 0;
 
 
     // --- 初期化 -------------------------------------------------------
@@ -489,14 +539,17 @@
       expenseModalInstance = new bootstrap.Modal(document.getElementById('expenseModal'));
       document.getElementById('expenseModal').addEventListener('hidden.bs.modal', onExpenseModalHideA);
       
+      // (v21: 経費モーダルのイベントリスナー) (要件3-3)
+      document.getElementById('M-itemCode').addEventListener('change', onItemCodeChangeA);
+      document.getElementById('M-areaCode').addEventListener('change', onAreaCodeChangeA);
+      document.getElementById('M-amount').addEventListener('input', onAmountInputA);
+      
       // (v18) カスタムモーダルの初期化
       initializeCustomModalsA();
 
       // (A) 経費モーダルの項目マスタ読み込み
       loadExpenseItemsMasterA();
-
-      // (v22: 削除) OCRのイベントリスナー
-      // document.getElementById('M-receiptImage').addEventListener('change', handleImageUploadA);
+      loadAreaMasterA(); // (v21: 新規)
       
       // (C) 詳細画面の戻るボタン
       document.getElementById('C-back-button').addEventListener('click', function() {
@@ -539,6 +592,28 @@
         option.value = item['経費項目コード'];
         option.textContent = item['経費項目'];
         select.appendChild(option);
+      });
+    }
+    
+    /**
+     * (v21: 新規) (A) エリアマスタをモーダルとマップに読み込む (要件3-3)
+     */
+    function loadAreaMasterA() {
+      var select = document.getElementById('M-areaCode');
+      select.innerHTML = '<option value="">選択してください</option>';
+      AREA_MASTER_MAP = {}; // マップを初期化
+      
+      AREA_MASTER.forEach(function(item) {
+        var code = item['地域区分 (コード)'];
+        var name = item['地域区分名'];
+        
+        var option = document.createElement('option');
+        option.value = code;
+        option.textContent = name;
+        select.appendChild(option);
+        
+        // マップにも保存 (View A のリスト表示用)
+        AREA_MASTER_MAP[code] = name;
       });
     }
 
@@ -708,7 +783,7 @@
     }
 
 
-    // --- (A) 経費申請機能 (v20: 大幅修正) --------------------------------
+    // --- (A) 経費申請機能 (v20: 大幅修正 / v21: 拡張) ---------------------
 
     /**
      * (A) フォーム(A)全体をリセットする
@@ -728,7 +803,7 @@
     }
 
     /**
-     * (A) (v20 新規) 経費明細リストを描画する
+     * (A) (v20 新規 / v21: エリア列追加) 経費明細リストを描画する (要件3-5)
      */
     function renderExpenseListA() {
       var tbody = document.getElementById('A-expense-list-body');
@@ -736,7 +811,7 @@
       var totalAmount = 0;
 
       if (currentExpenses.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>'; // (v21: colspan=7)
       } else {
         currentExpenses.forEach(function(ex) {
           var tr = document.createElement('tr');
@@ -744,9 +819,13 @@
           var itemName = item ? item['経費項目'] : ex.itemCode;
           var urlLink = ex.receiptUrl ? '<a href="' + ex.receiptUrl + '" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i></a>' : 'なし';
           
+          // (v21: エリア名を取得)
+          var areaName = ex.areaCode ? (AREA_MASTER_MAP[ex.areaCode] || ex.areaCode) : '';
+
           tr.innerHTML = 
             '<td>' + (ex.useDate || 'N/A') + '</td>' +
             '<td>' + (itemName || '不明') + '</td>' +
+            '<td>' + areaName + '</td>' + // (v21: 新規)
             '<td>' + formatNumber(ex.amount) + '</td>' +
             '<td>' + (ex.remarks || '') + '</td>' +
             '<td>' + urlLink + '</td>' +
@@ -766,11 +845,14 @@
 
 
     /**
-     * (A) 経費モーダルを開く (v20: 修正)
+     * (A) 経費モーダルを開く (v20: 修正 / v21: 拡張) (要件3-4)
      */
     function openExpenseModalA(expenseId) {
       document.getElementById('expense-form').reset();
       document.getElementById('M-expenseId').value = '';
+      
+      // (v21: 規定関連リセット)
+      resetModalTravelRuleUI();
       
       // (v22: カメラ・アップロード状態をリセット)
       document.getElementById('M-upload-status').innerHTML = '';
@@ -792,8 +874,13 @@
           document.getElementById('M-amount').value = expenseToEdit.amount;
           document.getElementById('M-remarks').value = expenseToEdit.remarks;
           document.getElementById('M-receiptUrl').value = expenseToEdit.receiptUrl;
+          document.getElementById('M-areaCode').value = expenseToEdit.areaCode || ''; // (v21: 読込)
           
           deleteButton.style.display = 'inline-block';
+
+          // (v21: 読込時にUIを復元) (要件3-4)
+          updateModalUIOnLoadA();
+          
         } else {
            showCustomAlert('エラー: 編集対象の経費が見つかりませんでした。');
            return;
@@ -815,14 +902,14 @@
       document.getElementById('M-upload-status').innerHTML = '';
       document.getElementById('M-delete-expense').style.display = 'none';
       
+      // (v21: 規定関連リセット)
+      resetModalTravelRuleUI();
+      
       stopCameraA(); // (v22: カメラを停止)
     }
 
     /**
      * (v22: 削除) handleImageUploadA
-     */
-    /**
-     * (v22: 削除) onOcrSuccessA
      */
      
     /**
@@ -942,8 +1029,6 @@
         // 領収書URLに設定
         document.getElementById('M-receiptUrl').value = result.url;
         
-        // (v22: OCR機能は削除されたので、フォームへの自動入力は行わない)
-        
       } else {
         onApiError((result && result.message) || 'アップロードに失敗しました。');
         statusEl.innerHTML = '<span class="text-danger"><i class="bi bi-exclamation-triangle-fill"></i> アップロードに失敗しました。</span>';
@@ -951,13 +1036,13 @@
     }
 
     /**
-     * (A) モーダルから経費アイテムを currentExpenses に追加 (v20: 修正)
+     * (A) モーダルから経費アイテムを currentExpenses に追加 (v20: 修正 / v21: areaCode追加) (要件3-4)
      */
     function addExpenseItemA() {
       var form = document.getElementById('expense-form');
       if (!form.checkValidity()) {
         form.classList.add('was-validated');
-        showCustomAlert('必須項目（利用日、経費項目、金額）を入力してください。');
+        showCustomAlert('必須項目（利用日、経費項目、金額' + (document.getElementById('M-area-wrapper').style.display === 'block' ? '、エリア' : '') + '）を入力してください。');
         return;
       }
       form.classList.remove('was-validated');
@@ -970,6 +1055,7 @@
         amount: parseFloat(document.getElementById('M-amount').value) || 0,
         remarks: document.getElementById('M-remarks').value,
         receiptUrl: document.getElementById('M-receiptUrl').value,
+        areaCode: document.getElementById('M-areaCode').value, // (v21: 追加)
       };
 
       if (expenseId) {
@@ -1060,12 +1146,195 @@
                 showView('view-E-my-reports');
               });
             } else {
+              // (v21: サーバーからの詳細なエラーメッセージを表示)
               onApiError((result && result.message) || '保存処理に失敗しました。');
             }
           })
            .withFailureHandler(onApiError)
           .saveOrSubmitExpenseReport(reportData, status);
       });
+    }
+
+
+    // --- (v21: 新規) 出張旅費規定ロジック (要件3-3, 3-4) -----------------
+    
+    /**
+     * (v21: 新規) モーダルの出張旅費規定関連のUIをリセット
+     */
+    function resetModalTravelRuleUI() {
+      currentExpenseLimit = 0;
+      
+      var areaWrapper = document.getElementById('M-area-wrapper');
+      areaWrapper.style.display = 'none';
+      
+      var areaSelect = document.getElementById('M-areaCode');
+      areaSelect.required = false;
+      areaSelect.value = '';
+      
+      document.getElementById('M-amount-limit-display').textContent = '';
+      
+      var amountInput = document.getElementById('M-amount');
+      amountInput.classList.remove('amount-over-limit');
+      // フォーム自体のリセットは呼び出し元 (open/hide) が行う
+    }
+
+    /**
+     * (v21: 新規) 経費項目(M-itemCode) 変更時のイベント (Req 3-3)
+     */
+    function onItemCodeChangeA() {
+      var itemCode = document.getElementById('M-itemCode').value;
+      var amountInput = document.getElementById('M-amount');
+      var limitDisplay = document.getElementById('M-amount-limit-display');
+      var areaWrapper = document.getElementById('M-area-wrapper');
+      var areaSelect = document.getElementById('M-areaCode');
+      
+      // UIを一旦リセット
+      currentExpenseLimit = 0;
+      limitDisplay.textContent = '';
+      amountInput.classList.remove('amount-over-limit');
+      areaWrapper.style.display = 'none';
+      areaSelect.required = false;
+
+      if (itemCode === '101') { // 日当
+        var allowance = getAllowanceLimitA();
+        currentExpenseLimit = allowance;
+        
+        amountInput.value = allowance;
+        limitDisplay.textContent = '規定額: ' + formatNumber(allowance) + ' 円';
+        
+      } else if (itemCode === '102') { // 宿泊費
+        areaWrapper.style.display = 'block';
+        areaSelect.required = true;
+
+        // エリアが選択されたら自動計算が走る (onAreaCodeChangeA)
+        // もしエリアが既に選択済みなら計算を実行 (編集モード対応)
+        if (areaSelect.value) {
+           onAreaCodeChangeA();
+        } else {
+           // 既定の宿泊費をヒントとして表示
+           var rule = getTravelRuleA();
+           var baseLodging = (rule && rule['宿泊費']) ? parseFloat(rule['宿泊費']) : 0;
+           currentExpenseLimit = baseLodging; // エリア未選択時の暫定上限
+           limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
+        }
+        
+      } else {
+        // その他の項目
+        // amountInput.value = ''; // 編集時を考慮し、自動クリアはしない
+      }
+      
+      // 最後に、現在額が上限を超えていないかチェック
+      checkAmountLimitA();
+    }
+    
+    /**
+     * (v21: 新規) エリア(M-areaCode) 変更時のイベント (Req 3-3)
+     */
+    function onAreaCodeChangeA() {
+      var itemCode = document.getElementById('M-itemCode').value;
+      
+      // 宿泊費(102)が選択されている場合のみ計算
+      if (itemCode === '102') {
+        updateAccommodationLimitA();
+      }
+    }
+    
+    /**
+     * (v21: 新規) 金額(M-amount) 入力時のイベント (Req 3-3)
+     */
+    function onAmountInputA() {
+      checkAmountLimitA();
+    }
+    
+    /**
+     * (v21: 新規) モーダル読込時にUIを復元 (編集時用) (Req 3-4)
+     */
+    function updateModalUIOnLoadA() {
+      // 項目変更イベントを発火させて、UI（エリア表示/非表示、上限額）を復元
+      onItemCodeChangeA();
+      
+      // 復元されたUIの後、現在額で上限チェック
+      checkAmountLimitA();
+    }
+
+    /**
+     * (v21: 新規) 現在の入力内容で金額の上限をチェック (Req 3-3)
+     */
+    function checkAmountLimitA() {
+      var amountInput = document.getElementById('M-amount');
+      var currentAmount = parseFloat(amountInput.value) || 0;
+      
+      // currentExpenseLimitが0（=上限なし）の場合はチェックしない
+      if (currentExpenseLimit > 0 && currentAmount > currentExpenseLimit) {
+        amountInput.classList.add('amount-over-limit');
+      } else {
+        amountInput.classList.remove('amount-over-limit');
+      }
+    }
+
+    /**
+     * (v21: 新規) ユーザーの出張旅費規定を取得
+     */
+    function getTravelRuleA() {
+       var userPosCode = EMPLOYEE_INFO.positionCode;
+       var userJobCode = EMPLOYEE_INFO.jobTypeCode;
+       
+       // (v21) 役職コードと職種区分コードの両方に一致するルールを探す
+       var rule = TRAVEL_RULES_MASTER.find(function(r) {
+         return String(r['役職 (コード)']) === String(userPosCode) && 
+                String(r['職種区分 (コード)']) === String(userJobCode);
+       });
+       
+       if (!rule) {
+         console.warn('出張旅費規定が見つかりません。 Pos: ' + userPosCode + ', Job: ' + userJobCode);
+       }
+       return rule;
+    }
+    
+    /**
+     * (v21: 新規) 日当(101)の規定額を取得 (Req 3-3)
+     */
+    function getAllowanceLimitA() {
+       var rule = getTravelRuleA();
+       if (rule && rule['日当']) {
+         return parseFloat(rule['日当']);
+       }
+       return 0; // 規定が見つからない場合
+    }
+    
+    /**
+     * (v21: 新規) 宿泊費(102)の規定額を計算し、フォームにセット (Req 3-3)
+     */
+    function updateAccommodationLimitA() {
+      var areaCode = document.getElementById('M-areaCode').value;
+      var amountInput = document.getElementById('M-amount');
+      var limitDisplay = document.getElementById('M-amount-limit-display');
+      
+      // 1. 基本宿泊費
+      var rule = getTravelRuleA();
+      var baseLodging = (rule && rule['宿泊費']) ? parseFloat(rule['宿泊費']) : 0;
+      
+      if (!areaCode) {
+        currentExpenseLimit = baseLodging; // エリア未選択時の上限
+        limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
+        checkAmountLimitA();
+        return;
+      }
+      
+      // 2. エリア追加宿泊費
+      var areaRule = AREA_MASTER.find(function(a) {
+        return String(a['地域区分 (コード)']) === String(areaCode);
+      });
+      var additionalLodging = (areaRule && areaRule['追加宿泊費']) ? parseFloat(areaRule['追加宿泊費']) : 0;
+      
+      // 3. 合計
+      var totalLimit = baseLodging + additionalLodging;
+      currentExpenseLimit = totalLimit;
+      
+      amountInput.value = totalLimit;
+      limitDisplay.textContent = '上限額: ' + formatNumber(totalLimit) + ' 円 (基本: ' + formatNumber(baseLodging) + ' + エリア追加: ' + formatNumber(additionalLodging) + ')';
+      
+      checkAmountLimitA();
     }
 
 
@@ -1131,7 +1400,7 @@
       });
     }
 
-    // --- (C) 詳細機能 (v20: 修正) ---------------------------------------
+    // --- (C) 詳細機能 (v20: 修正 / v21: 拡張) -----------------------------
 
     /**
      * (C) 詳細をロード
@@ -1147,7 +1416,7 @@
     }
     
     /**
-     * (C) 詳細 取得成功 (v20: 修正)
+     * (C) 詳細 取得成功 (v20: 修正 / v21: エリア列追加) (要件3-5)
      */
     function onLoadReportDetailsSuccessC(data) {
       showLoading(false);
@@ -1201,17 +1470,19 @@
           var url = ex.receiptUrl;
           var urlLink = url ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i></a>' : '';
           
+          // (v21: ex.areaName はGAS側で設定済み)
           expBody.innerHTML += 
             '<tr>' +
               '<td>' + useDate + '</td>' +
               '<td>' + (ex.itemName || '不明な項目') + '</td>' +
+              '<td>' + (ex.areaName || '') + '</td>' + // (v21: 新規)
               '<td>' + formatNumber(ex.amount || 0) + '</td>' +
               '<td>' + (ex.remarks || '') + '</td>' +
               '<td>' + urlLink + '</td>' +
             '</tr>';
         });
       } else {
-        expBody.innerHTML = '<tr><td colspan="5">経費明細はありません。</td></tr>';
+        expBody.innerHTML = '<tr><td colspan="6">経費明細はありません。</td></tr>'; // (v21: colspan=6)
       }
       
       // 4. 承認ボタンの制御
@@ -1272,7 +1543,7 @@
       });
     }
 
-    // --- (D) 経費精算まとめ機能 (v20: 修正) -----------------------------
+    // --- (D) 経費精算まとめ機能 (v20: 修正 / v21: 拡張) -------------------
 
     /**
      * (D) 承認済みの経費一覧をロード
@@ -1286,7 +1557,7 @@
     }
     
     /**
-     * (D) 承認済み経費 取得成功 (v20: 修正)
+     * (D) 承認済み経費 取得成功 (v20: 修正 / v21: エリア名追加) (要件3-5 準拠)
      */
     function onLoadApprovedExpensesSuccessD(data) {
       showLoading(false);
@@ -1312,7 +1583,10 @@
         if (!expensesMap[rId]) {
           expensesMap[rId] = [];
         }
-        expensesMap[rId].push(ex.itemName + ': ' + formatNumber(ex['金額']) + '円');
+        
+        // (v21: ex.areaName はGAS側で設定済み)
+        var areaStr = ex.areaName ? ' (' + ex.areaName + ')' : '';
+        expensesMap[rId].push(ex.itemName + areaStr + ': ' + formatNumber(ex['金額']) + '円');
       });
       
       reports.forEach(function(report) {
@@ -1473,7 +1747,7 @@
     }
     
     /**
-     * (A) 編集データの読み込み成功 (E -> A) (v20: 修正)
+     * (A) 編集データの読み込み成功 (E -> A) (v20: 修正 / v21: 拡張) (要件3-4)
      */
     function onLoadReportForEditSuccessA(result) {
       showLoading(false);
@@ -1490,6 +1764,7 @@
         
         resetFormA();
         
+        // (v21: areaCodeも読み込まれる)
         currentExpenses = data.expenses || [];
 
         renderExpenseListA();
