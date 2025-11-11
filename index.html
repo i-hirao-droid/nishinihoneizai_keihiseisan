@@ -64,6 +64,13 @@
       background-color: #fff3cd; /* Bootstrap 'warning' light background */
       border-color: #ffc107;
     }
+
+    /* (v25: 申請一覧のグループヘッダー) */
+    .status-group-header td { /* (v26: セレクタをtdに修正) */
+      background-color: #e9ecef; /* (v26: gray-200 に変更) */
+      border-top: 2px solid #dee2e6; /* (v26: 上ボーダー追加 'gray-300') */
+      border-bottom: 1px solid #dee2e6; /* (v26: 下ボーダー追加) */
+    }
   </style>
 </head>
 <body>
@@ -110,6 +117,7 @@
 
   <div class="container-fluid p-3 p-md-4">
 
+    <!-- (A) 経費申請ビュー -->
     <div id="view-A-expense-report" class="app-view">
       <h3 class="mb-3"><i class="bi bi-pencil-square"></i> 経費申請・編集</h3>
 
@@ -151,17 +159,20 @@
               <tr>
                 <th>利用日</th>
                 <th>経費項目</th>
-                <th>エリア</th> <th>金額 (円)</th>
+                <th>エリア</th> <!-- (v21: 新規) -->
+                <th>金額 (円)</th>
                 <th>備考</th>
                 <th style="width: 120px;">領収書</th>
                 <th style="width: 80px;">操作</th>
               </tr>
             </thead>
             <tbody id="A-expense-list-body">
+              <!-- (v21: colspan=7) -->
               <tr><td colspan="7" class="text-center p-4">「経費明細を追加」ボタンから項目を登録してください。</td></tr>
             </tbody>
             <tfoot class="table-group-divider">
               <tr>
+                <!-- (v21: colspan=3) -->
                 <td colspan="3" class="text-end fw-bold">合計金額</td>
                 <td class="fw-bold text-danger fs-5" id="A-total-expense-amount">0 円</td>
                 <td colspan="3"></td>
@@ -184,6 +195,7 @@
       
     </div>
 
+    <!-- (B) 承認待ちビュー -->
     <div id="view-B-approval-list" class="app-view">
       <h3 class="mb-3"><i class="bi bi-check2-circle"></i> 承認待ち一覧</h3>
       <div class="card shadow-sm">
@@ -192,6 +204,7 @@
       </div>
     </div>
 
+    <!-- (C) 詳細ビュー -->
     <div id="view-C-report-detail" class="app-view">
       <h3 class="mb-3"><i class="bi bi-file-earmark-text"></i> 経費申請 詳細</h3>
       
@@ -239,7 +252,9 @@
               <tr>
                  <th>利用日</th>
                 <th>経費項目</th>
-                <th>エリア</th> <th>金額 (円)</th>
+                <th>エリア</th> <!-- (v21: 新規) -->
+                <th>金額 (円)</th>
+                <!-- (v24: 税率・税抜表示) ※今回は詳細表示のレイアウト変更は要求されていないため、列は変更しない -->
                 <th>備考</th>
                 <th>領収書</th>
               </tr>
@@ -261,6 +276,7 @@
       </div>
     </div>
 
+    <!-- (D) 経費精算まとめビュー -->
     <div id="view-D-expense-summary" class="app-view">
       <h3 class="mb-3"><i class="bi bi-cash-coin"></i> 経費精算まとめ (最終申請)</h3>
       
@@ -306,23 +322,24 @@
       </div>
     </div>
 
+    <!-- (E) 申請一覧ビュー (v25: レイアウト変更) -->
     <div id="view-E-my-reports" class="app-view">
-      <h3 class="mb-3"><i class="bi bi-list-task"></i> 申請一覧 (自分)</h3>
+      <h3 class="mb-3"><i class="bi bi-list-task"></i> 自分の申請履歴</h3>
       <div class="card shadow-sm">
         <div class="card-header">
           <div class="d-flex justify-content-between align-items-center">
-             <span>自分の申請履歴</span>
+             <span>申請履歴</span>
             <button class="btn btn-sm btn-outline-primary" onclick="loadMyReportsE()">
               <i class="bi bi-arrow-clockwise"></i> 更新
             </button>
           </div>
         </div>
         <div class="table-responsive">
+          <!-- (v25: テーブル構造変更) -->
           <table class="table table-hover mb-0">
              <thead class="table-light">
               <tr>
                 <th>日付</th>
-                <th>件名</th>
                 <th>ステータス</th>
                 <th>合計経費 (円)</th>
                 <th>備考</th>
@@ -330,7 +347,8 @@
               </tr>
             </thead>
             <tbody id="E-my-reports-list-body">
-              </tbody>
+              <!-- (v25: onLoadMyReportsSuccessE で動的生成) -->
+            </tbody>
           </table>
         </div>
       </div>
@@ -338,6 +356,7 @@
 
   </div>
   
+  <!-- ローディングオーバーレイ -->
   <div id="loading-overlay">
     <div id="loading-spinner">
       <div class="spinner-border" role="status" style="width: 3rem; height: 3rem;">
@@ -348,6 +367,7 @@
   </div>
 
 
+  <!-- (A) 経費明細モーダル (v24: レイアウト変更 / v25: カメラ削除) -->
   <div class="modal fade" id="expenseModal" tabindex="-1" aria-labelledby="expenseModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
       <div class="modal-content">
@@ -359,61 +379,83 @@
           <form id="expense-form">
             <input type="hidden" id="M-expenseId">
             
-             <div class="row g-3">
-              <div class="col-md-6">
-                <label for="M-useDate" class="form-label">利用日 <span class="text-danger">*</span></label>
-                <input type="date" class="form-control" id="M-useDate" required>
-              </div>
-              <div class="col-md-6">
-                 <label for="M-itemCode" class="form-label">経費項目 <span class="text-danger">*</span></label>
-                <select class="form-select" id="M-itemCode" required>
-                  <option value="">選択してください</option>
-                  </select>
-              </div>
+             <!-- (v24: 縦一列レイアウト) -->
+             <div class="mb-3">
+               <label for="M-useDate" class="form-label">利用日 <span class="text-danger">*</span></label>
+               <input type="date" class="form-control" id="M-useDate" required>
+             </div>
+             
+             <div class="mb-3">
+               <label for="M-itemCode" class="form-label">経費項目 <span class="text-danger">*</span></label>
+               <select class="form-select" id="M-itemCode" required>
+                 <option value="">選択してください</option>
+               </select>
+             </div>
     
-              <div class="col-md-6" id="M-area-wrapper" style="display: none;">
-                <label for="M-areaCode" class="form-label">エリア <span class="text-danger">*</span></label>
-                <select class="form-select" id="M-areaCode">
-                  <option value="">選択してください</option>
-                  </select>
-              </div>
+             <!-- (v21: 新規) エリア選択 (要件3-2) -->
+             <div class="mb-3" id="M-area-wrapper" style="display: none;">
+               <label for="M-areaCode" class="form-label">エリア <span class="text-danger">*</span></label>
+               <select class="form-select" id="M-areaCode">
+                 <option value="">選択してください</option>
+                 <!-- loadAreaMasterA() で読み込む -->
+               </select>
+             </div>
 
-               <div class="col-md-6">
-                <label for="M-amount" class="form-label">金額 (円) <span class="text-danger">*</span></label>
-                <input type="number" class="form-control" id="M-amount" required>
-                <small id="M-amount-limit-display" class="form-text text-muted"></small>
-              </div>
+             <!-- (v24: 金額セクション) -->
+             <div class="mb-3">
+               <label for="M-amount" class="form-label">金額 (円) (税込) <span class="text-danger">*</span></label>
+               <input type="number" class="form-control" id="M-amount" required step="any" oninput="calculateTaxA(event)">
+               <!-- (v21: 新規) 上限額表示 (要件3-2) -->
+               <small id="M-amount-limit-display" class="form-text text-muted"></small>
+             </div>
+
+             <div class="mb-3">
+               <label for="M-taxRateSelect" class="form-label">消費税率</label>
+               <div class="input-group">
+                 <select class="form-select" id="M-taxRateSelect" onchange="calculateTaxA(event)">
+                   <option value="10">10%</option>
+                   <option value="8">8%</option>
+                   <option value="5">5%</option>
+                   <option value="3">3%</option>
+                   <option value="0">消費税なし (0%)</option>
+                   <option value="other">その他 (手入力)</option>
+                 </select>
+                 <input type="number" class="form-control" id="M-taxRateInput" placeholder="率(%)" style="display: none;" step="any" oninput="calculateTaxA(event)">
+               </div>
+             </div>
+
+             <div class="mb-3">
+               <label for="M-preTaxAmount" class="form-label">税抜き金額 (円)</label>
+               <input type="number" class="form-control" id="M-preTaxAmount" step="any" oninput="calculateTaxA(event)">
+             </div>
+             <!-- (v24: 金額セクション 終了) -->
               
-              <div class="col-12">
-                <label for="M-remarks" class="form-label">備考（内容・訪問先など）</label>
-                 <input type="text" class="form-control" id="M-remarks" placeholder="例: 駐車代 (〇〇商事様)">
-              </div>
+             <div class="mb-3">
+               <label for="M-remarks" class="form-label">備考（内容・訪問先など）</label>
+                <input type="text" class="form-control" id="M-remarks" placeholder="例: 駐車代 (〇〇商事様)">
+             </div>
               
-              <hr class="my-2">
+             <hr class="my-3">
               
-              <div class="col-12">
-                 <label class="form-label">領収書 (カメラ撮影)</label>
-                 <div>
-                   <button type="button" class="btn btn-sm btn-outline-primary" id="M-start-camera" onclick="startCameraA()">
-                     <i class="bi bi-camera"></i> カメラを起動
-                   </button>
-                   <button type="button" class="btn btn-sm btn-danger" id="M-capture-image" onclick="captureImageA()" style="display: none;">
-                     <i class="bi bi-camera-reels-fill"></i> 撮影する
-                   </button>
-                 </div>
-                 <div id="M-camera-container" class="mt-2" style="display: none; position: relative; max-width: 100%;">
-                   <video id="M-camera-video" style="width: 100%; height: auto; border: 1px solid #ddd;" playsinline autoplay></video>
-                 </div>
-                 <canvas id="M-camera-canvas" style="display: none;"></canvas>
-                 <div id="M-upload-status" class="mt-2"></div>
-              </div>
+             <!-- (v25: カメラ関連 削除) -->
+             <div class="mb-3">
+                <label class="form-label">領収書</label>
+                <div>
+                  <!-- (v27: 修正) 文言変更 -->
+                  <label class="btn btn-sm btn-outline-primary" for="M-file-upload">
+                    <i class="bi bi-upload"></i> 領収書を添付
+                  </label>
+                  <input type="file" id="M-file-upload" accept="image/*" style="display: none;" onchange="handleFileUploadA(event)">
+                </div>
+                
+                <div id="M-upload-status" class="mt-2"></div>
+             </div>
               
-              <div class="col-12">
-                 <label for="M-receiptUrl" class="form-label">領収書URL</label>
-                <input type="text" class="form-control" id="M-receiptUrl" readonly>
-              </div>
+             <div class="mb-3">
+                <label for="M-receiptUrl" class="form-label">領収書URL</label>
+               <input type="text" class="form-control" id="M-receiptUrl" readonly>
+             </div>
               
-            </div>
           </form>
         </div>
         <div class="modal-footer">
@@ -429,6 +471,7 @@
     </div>
   </div>
 
+  <!-- カスタムアラートモーダル -->
   <div class="modal fade" id="customAlertModal" tabindex="-1" aria-labelledby="customAlertModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -446,6 +489,7 @@
     </div>
   </div>
 
+  <!-- カスタムプロンプトモーダル -->
   <div class="modal fade" id="customPromptModal" tabindex="-1" aria-labelledby="customPromptModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
       <div class="modal-content">
@@ -486,8 +530,8 @@
     // (v21: マスタのマップ)
     var AREA_MASTER_MAP = {};
     
-    // (A) 経費申請用データ
-    var currentExpenses = []; // [ { expenseId, useDate, itemCode, amount, remarks, receiptUrl, areaCode }, ... ] (v21: areaCode追加)
+    // (A) 経費申請用データ (v24: taxRate, preTaxAmount 追加)
+    var currentExpenses = []; // [ { expenseId, useDate, itemCode, amount, remarks, receiptUrl, areaCode, taxRate, preTaxAmount }, ... ]
     
     // (A) 経費モーダルのインスタンス
     var expenseModalInstance;
@@ -500,11 +544,14 @@
     var customAlertCallback = null;
     var customPromptCallback = null;
 
-    // (v22: 新規) カメラのストリームを保持
-    var currentStream = null;
+    // (v22: 新規) カメラのストリームを保持 (v25: 削除)
+    // var currentStream = null;
     
     // (v21: 新規) 経費モーダルの現在の上限額
     var currentExpenseLimit = 0;
+    
+    // (v24: 新規) 税計算の無限ループ防止フラグ
+    var isCalculatingTax = false;
 
 
     // --- 初期化 -------------------------------------------------------
@@ -526,7 +573,7 @@
       // (v21: 経費モーダルのイベントリスナー) (要件3-3)
       document.getElementById('M-itemCode').addEventListener('change', onItemCodeChangeA);
       document.getElementById('M-areaCode').addEventListener('change', onAreaCodeChangeA);
-      document.getElementById('M-amount').addEventListener('input', onAmountInputA);
+      // document.getElementById('M-amount').addEventListener('input', onAmountInputA); // (v24: calculateTaxA に移動)
       
       // (v18) カスタムモーダルの初期化
       initializeCustomModalsA();
@@ -811,7 +858,7 @@
             '<td>' + (ex.useDate || 'N/A') + '</td>' +
             '<td>' + (itemName || '不明') + '</td>' +
             '<td>' + areaName + '</td>' + // (v21: 新規)
-            '<td>' + formatNumber(ex.amount) + '</td>' +
+            '<td>' + formatNumber(ex.amount) + '</td>' + // (v24: カンマ区切り)
             '<td>' + (ex.remarks || '') + '</td>' +
             '<td>' + urlLink + '</td>' +
             '<td>' +
@@ -830,7 +877,7 @@
 
 
     /**
-     * (A) 経費モーダルを開く (v20: 修正 / v21: 拡張) (要件3-4)
+     * (A) 経費モーダルを開く (v20: 修正 / v21: 拡張 / v24: 税率読込) (要件3-4)
      */
     function openExpenseModalA(expenseId) {
       document.getElementById('expense-form').reset();
@@ -839,10 +886,16 @@
       // (v21: 規定関連リセット)
       resetModalTravelRuleUI();
       
-      // (v22: カメラ・アップロード状態をリセット)
+      // (v22: カメラ・アップロード状態をリセット) (v25: stopCamera 削除)
       document.getElementById('M-upload-status').innerHTML = '';
       document.getElementById('M-receiptUrl').value = '';
-      stopCameraA();
+      // stopCameraA(); // (v25: 削除)
+
+      // (v24: 税率入力欄リセット)
+      document.getElementById('M-taxRateSelect').value = '10';
+      document.getElementById('M-taxRateInput').value = '';
+      document.getElementById('M-taxRateInput').style.display = 'none';
+      document.getElementById('M-preTaxAmount').value = '';
       
       var deleteButton = document.getElementById('M-delete-expense');
       
@@ -861,6 +914,28 @@
           document.getElementById('M-receiptUrl').value = expenseToEdit.receiptUrl;
           document.getElementById('M-areaCode').value = expenseToEdit.areaCode || ''; // (v21: 読込)
           
+          // (v24: 税率・税抜き金額の読み込み)
+          document.getElementById('M-preTaxAmount').value = expenseToEdit.preTaxAmount;
+          var taxRate = expenseToEdit.taxRate;
+          var taxSelect = document.getElementById('M-taxRateSelect');
+          var taxInput = document.getElementById('M-taxRateInput');
+          
+          // taxRateが標準の選択肢にあるかチェック
+          var standardOptions = ['10', '8', '5', '3', '0'];
+          if (taxRate !== undefined && standardOptions.includes(String(taxRate))) {
+            taxSelect.value = String(taxRate);
+            taxInput.style.display = 'none';
+          } else if (taxRate !== undefined) {
+            // 標準以外（その他）の場合
+            taxSelect.value = 'other';
+            taxInput.value = taxRate;
+            taxInput.style.display = 'block';
+          } else {
+            // taxRateが保存されていない古いデータの場合（デフォルト）
+            taxSelect.value = '10';
+            taxInput.style.display = 'none';
+          }
+
           deleteButton.style.display = 'inline-block';
 
           // (v21: 読込時にUIを復元) (要件3-4)
@@ -880,7 +955,7 @@
     }
     
     /**
-     * (A) 経費モーダル非表示時の処理 (v22: 修正)
+     * (A) 経費モーダル非表示時の処理 (v22: 修正 / v24: 税率入力欄リセット / v25: stopCamera削除)
      */
     function onExpenseModalHideA() {
       document.getElementById('expense-form').reset();
@@ -890,116 +965,64 @@
       // (v21: 規定関連リセット)
       resetModalTravelRuleUI();
       
-      stopCameraA(); // (v22: カメラを停止)
+      // (v24: 税率入力欄リセット)
+      document.getElementById('M-taxRateInput').value = '';
+      document.getElementById('M-taxRateInput').style.display = 'none';
+      document.getElementById('M-taxRateSelect').value = '10';
+      
+      // stopCameraA(); // (v25: 削除)
     }
 
     /**
-     * (v22: 削除) handleImageUploadA
+     * (v24: 新規) ファイル選択でアップロード
      */
-     
-    /**
-     * (v22: 新規) カメラを停止する
-     */
-    function stopCameraA() {
-      if (currentStream) {
-        currentStream.getTracks().forEach(function(track) {
-          track.stop();
-        });
-        currentStream = null;
-      }
-      document.getElementById('M-camera-container').style.display = 'none';
-      document.getElementById('M-capture-image').style.display = 'none';
-      document.getElementById('M-start-camera').style.display = 'inline-block';
-    }
-
-    /**
-     * (v22: 新規) カメラを起動する
-     */
-    function startCameraA() {
-      stopCameraA(); // 念のため既存を停止
-      var video = document.getElementById('M-camera-video');
-      var container = document.getElementById('M-camera-container');
-      var statusEl = document.getElementById('M-upload-status');
-      
-      statusEl.innerHTML = '';
-      
-      // navigator.mediaDevices.getUserMedia が存在するか確認
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-        
-        // (v22) まず背面カメラ(environment)を試す
-        navigator.mediaDevices.getUserMedia({ 
-          video: { 
-            facingMode: 'environment' 
-          } 
-        })
-        .then(function(stream) {
-          currentStream = stream;
-          video.srcObject = stream;
-          video.play();
-          container.style.display = 'block';
-          document.getElementById('M-start-camera').style.display = 'none';
-          document.getElementById('M-capture-image').style.display = 'inline-block';
-        })
-        .catch(function(err) {
-          console.error("Camera error (environment): ", err);
-          
-          // (v22) 背面カメラが失敗したら、前面カメラ(user)でリトライ
-          navigator.mediaDevices.getUserMedia({ video: true })
-           .then(function(stream) {
-              currentStream = stream;
-              video.srcObject = stream;
-              video.play();
-              container.style.display = 'block';
-              document.getElementById('M-start-camera').style.display = 'none';
-              document.getElementById('M-capture-image').style.display = 'inline-block';
-           })
-           .catch(function(err2) {
-              // (v22) それでも失敗した場合
-              console.error("Camera error (fallback): ", err2);
-              statusEl.innerHTML = '<span class="text-danger">カメラの起動に失敗しました。ブラウザのカメラ権限を確認してください。</span>';
-           });
-        });
-      } else {
-         statusEl.innerHTML = '<span class="text-danger">お使いのブラウザはカメラ機能に対応していません。</span>';
-      }
-    }
-    
-    /**
-     * (v22: 新規) カメラから画像をキャプチャしてアップロード
-     */
-    function captureImageA() {
-      var video = document.getElementById('M-camera-video');
-      var canvas = document.getElementById('M-camera-canvas');
-      var context = canvas.getContext('2d');
-      var statusEl = document.getElementById('M-upload-status');
-      
-      if (!currentStream) {
-        statusEl.innerHTML = '<span class="text-danger">カメラが起動していません。</span>';
+    function handleFileUploadA(event) {
+      var file = event.target.files[0];
+      if (!file) {
         return;
       }
+
+      // (v25: stopCamera 削除)
+      // stopCameraA(); 
       
-      // Canvasのサイズをビデオの表示サイズに合わせる
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
+      var reader = new FileReader();
+      var statusEl = document.getElementById('M-upload-status');
       
-      // Canvasにビデオの現在のフレームを描画
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      reader.onload = function(e) {
+        var base64Image = e.target.result;
+
+        // アップロード処理
+        statusEl.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> ファイルをアップロード中です...</span>';
+        showLoading(true, '画像をアップロード中...');
+        
+        google.script.run
+          .withSuccessHandler(onUploadSuccessA)
+          .withFailureHandler(onApiError)
+          .uploadBase64Image(base64Image);
+      };
       
-      // Base64データを取得 (PNG形式)
-      var base64Image = canvas.toDataURL('image/png');
+      reader.onerror = function(e) {
+        statusEl.innerHTML = '<span class="text-danger">ファイルの読み取りに失敗しました。</span>';
+        onApiError('ファイルの読み取りに失敗しました。');
+      };
       
-      // カメラを停止
-      stopCameraA();
+      reader.readAsDataURL(file);
       
-      // アップロード処理
-      statusEl.innerHTML = '<span class="text-primary"><div class="spinner-border spinner-border-sm" role="status"></div> 画像をアップロード中です...</span>';
-      showLoading(true, '画像をアップロード中...');
-      
-      google.script.run
-        .withSuccessHandler(onUploadSuccessA)
-        .withFailureHandler(onApiError)
-        .uploadBase64Image(base64Image); // (v22: 新しいGAS関数を呼ぶ)
+      // inputの値をクリアして同じファイルを連続で選択できるようにする
+      event.target.value = null;
     }
+     
+    /**
+     * (v25: 削除) stopCameraA
+     */
+
+    /**
+     * (v25: 削除) startCameraA
+     */
+    
+    /**
+     * (v25: 削除) captureImageA
+     */
     
     /**
      * (v22: 新規) 画像アップロード成功時のコールバック
@@ -1021,18 +1044,27 @@
     }
 
     /**
-     * (A) モーダルから経費アイテムを currentExpenses に追加 (v20: 修正 / v21: areaCode追加) (要件3-4)
+     * (A) モーダルから経費アイテムを currentExpenses に追加 (v20: 修正 / v21: areaCode追加 / v24: 税率・税抜追加) (要件3-4)
      */
     function addExpenseItemA() {
       var form = document.getElementById('expense-form');
       if (!form.checkValidity()) {
         form.classList.add('was-validated');
-        showCustomAlert('必須項目（利用日、経費項目、金額' + (document.getElementById('M-area-wrapper').style.display === 'block' ? '、エリア' : '') + '）を入力してください。');
+        showCustomAlert('必須項目（利用日、経費項目、金額(税込)' + (document.getElementById('M-area-wrapper').style.display === 'block' ? '、エリア' : '') + '）を入力してください。');
         return;
       }
       form.classList.remove('was-validated');
       
       var expenseId = document.getElementById('M-expenseId').value;
+      
+      // (v24: 税率取得)
+      var taxRateSelect = document.getElementById('M-taxRateSelect').value;
+      var finalTaxRate;
+      if (taxRateSelect === 'other') {
+        finalTaxRate = parseFloat(document.getElementById('M-taxRateInput').value) || 0;
+      } else {
+        finalTaxRate = parseFloat(taxRateSelect);
+      }
       
       var expense = {
         useDate: document.getElementById('M-useDate').value,
@@ -1041,6 +1073,8 @@
         remarks: document.getElementById('M-remarks').value,
         receiptUrl: document.getElementById('M-receiptUrl').value,
         areaCode: document.getElementById('M-areaCode').value, // (v21: 追加)
+        taxRate: finalTaxRate, // (v24: 追加)
+        preTaxAmount: parseFloat(document.getElementById('M-preTaxAmount').value) || 0 // (v24: 追加)
       };
 
       if (expenseId) {
@@ -1140,6 +1174,92 @@
       });
     }
 
+    // --- (v24: 新規) 税率計算ロジック ------------------------------------
+
+    /**
+     * (v24: 新規) 税率、税込、税抜の自動計算
+     */
+    function calculateTaxA(event) {
+      // 無限ループ防止
+      if (isCalculatingTax) return;
+      isCalculatingTax = true;
+      
+      try {
+        var elId = event.target.id;
+        
+        var amountEl = document.getElementById('M-amount');
+        var preTaxEl = document.getElementById('M-preTaxAmount');
+        var taxSelect = document.getElementById('M-taxRateSelect');
+        var taxInput = document.getElementById('M-taxRateInput');
+
+        // 1. 税率の確定
+        if (elId === 'M-taxRateSelect' && taxSelect.value === 'other') {
+          taxInput.style.display = 'block';
+          // 「その他」を選んだだけでは再計算しない
+          isCalculatingTax = false;
+          return;
+        } else if (elId === 'M-taxRateSelect') {
+          taxInput.style.display = 'none';
+        }
+        
+        var taxRate;
+        if (taxSelect.value === 'other') {
+          taxRate = parseFloat(taxInput.value) || 0;
+        } else {
+          taxRate = parseFloat(taxSelect.value);
+        }
+
+        // 2. 金額の取得
+        var amount = parseFloat(amountEl.value) || 0;
+        var preTaxAmount = parseFloat(preTaxEl.value) || 0;
+        
+        // 3. 計算の実行
+        // 優先順位：税率変更 > 税抜変更 > 税込変更
+        if (elId === 'M-taxRateSelect' || elId === 'M-taxRateInput') {
+          // 税率が変わった時 -> 税込から税抜を計算
+          if (amount > 0) {
+            preTaxEl.value = calculatePreTax(amount, taxRate);
+          }
+        } else if (elId === 'M-preTaxAmount') {
+          // 税抜が変わった時 -> 税込を計算
+          amountEl.value = calculateAmount(preTaxAmount, taxRate);
+        } else if (elId === 'M-amount') {
+          // 税込が変わった時 -> 税抜を計算
+          preTaxEl.value = calculatePreTax(amount, taxRate);
+        }
+
+      } catch (e) {
+        console.error('Tax calculation error:', e);
+      }
+      
+      isCalculatingTax = false;
+      
+      // (v21) 上限チェックを（税計算後にも）実行
+      checkAmountLimitA();
+    }
+    
+    /**
+     * (v24: 新規) 税抜金額を計算 (小数点以下切り捨て)
+     */
+    function calculatePreTax(amount, taxRate) {
+      if (taxRate < 0) taxRate = 0;
+      var rate = 1 + (taxRate / 100);
+      if (rate === 0) return amount;
+      // 経理計算上、税抜金額は切り捨てが一般的
+      // (v26: 浮動小数点誤差を補正するため、微小な値を加えてから切り捨てる)
+      return Math.floor((amount / rate) + 1e-9);
+    }
+    
+    /**
+     * (v24: 新規) 税込金額を計算 (小数点以下切り捨て)
+     */
+    function calculateAmount(preTaxAmount, taxRate) {
+      if (taxRate < 0) taxRate = 0;
+      var rate = 1 + (taxRate / 100);
+      // 経理計算上、税込金額も切り捨てが一般的
+      return Math.floor(preTaxAmount * rate);
+    }
+
 
     // --- (v21: 新規) 出張旅費規定ロジック (要件3-3, 3-4) -----------------
     
@@ -1185,7 +1305,13 @@
         currentExpenseLimit = allowance;
         
         amountInput.value = allowance;
-        limitDisplay.textContent = '規定額: ' + formatNumber(allowance) + ' 円';
+        // (v28: 修正) 規定額のテキスト表示を削除
+        // limitDisplay.textContent = '規定額: ' + formatNumber(allowance) + ' 円';
+        
+        // (v24: 日当の場合、税率0%に設定し、税抜も同額)
+        document.getElementById('M-taxRateSelect').value = '0';
+        document.getElementById('M-preTaxAmount').value = allowance;
+        document.getElementById('M-taxRateInput').style.display = 'none';
         
       } else if (itemCode === '102') { // 宿泊費
         areaWrapper.style.display = 'block';
@@ -1200,12 +1326,17 @@
            var rule = getTravelRuleA();
            var baseLodging = (rule && rule['宿泊費']) ? parseFloat(rule['宿泊費']) : 0;
            currentExpenseLimit = baseLodging; // エリア未選択時の暫定上限
-           limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
+           // (v28: 修正) 規定額のテキスト表示を削除
+           // limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
         }
         
       } else {
         // その他の項目
-        // amountInput.value = ''; // 編集時を考慮し、自動クリアはしない
+        // (v24: 101以外の場合は税率を10%に戻す)
+        // document.getElementById('M-taxRateSelect').value = '10';
+        // document.getElementById('M-taxRateInput').style.display = 'none';
+        // (v24: 項目変更時に税込額をクリアしない場合、税計算をトリガーする)
+        calculateTaxA({ target: { id: 'M-itemCode' } }); 
       }
       
       // 最後に、現在額が上限を超えていないかチェック
@@ -1226,10 +1357,11 @@
     
     /**
      * (v21: 新規) 金額(M-amount) 入力時のイベント (Req 3-3)
+     * (v24: calculateTaxA にロジックを移行)
      */
-    function onAmountInputA() {
-      checkAmountLimitA();
-    }
+    // function onAmountInputA() {
+    //   checkAmountLimitA();
+    // }
     
     /**
      * (v21: 新規) モーダル読込時にUIを復元 (編集時用) (Req 3-4)
@@ -1301,7 +1433,8 @@
       
       if (!areaCode) {
         currentExpenseLimit = baseLodging; // エリア未選択時の上限
-        limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
+        // (v28: 修正) 規定額のテキスト表示を削除
+        // limitDisplay.textContent = '基本宿泊費: ' + formatNumber(baseLodging) + ' 円 (エリアを選択してください)';
         checkAmountLimitA();
         return;
       }
@@ -1318,7 +1451,11 @@
       currentExpenseLimit = totalLimit;
       
       amountInput.value = totalLimit;
-      limitDisplay.textContent = '上限額: ' + formatNumber(totalLimit) + ' 円 (基本: ' + formatNumber(baseLodging) + ' + エリア追加: ' + formatNumber(additionalLodging) + ')';
+      // (v28: 修正) 規定額のテキスト表示を削除
+      // limitDisplay.textContent = '上限額: ' + formatNumber(totalLimit) + ' 円 (基本: ' + formatNumber(baseLodging) + ' + エリア追加: ' + formatNumber(additionalLodging) + ')';
+      
+      // (v24: 宿泊費がセットされたら、税計算も実行)
+      calculateTaxA({ target: { id: 'M-amount' } });
       
       checkAmountLimitA();
     }
@@ -1457,6 +1594,7 @@
           var urlLink = url ? '<a href="' + url + '" target="_blank" rel="noopener noreferrer"><i class="bi bi-box-arrow-up-right"></i></a>' : '';
           
           // (v21: ex.areaName はGAS側で設定済み)
+          // (v24: ex.taxRate, ex.preTaxAmount もGAS側で設定済みだが、表示レイアウトは変更しない)
           expBody.innerHTML += 
             '<tr>' +
               '<td>' + useDate + '</td>' +
@@ -1572,6 +1710,7 @@
         
         // (v21: ex.areaName はGAS側で設定済み)
         var areaStr = ex.areaName ? ' (' + ex.areaName + ')' : '';
+        // (v24: カンマ区切り)
         expensesMap[rId].push(ex.itemName + areaStr + ': ' + formatNumber(ex['金額']) + '円');
       });
       
@@ -1592,7 +1731,7 @@
           '</td>' +
           '<td>' + date + '</td>' +
           '<td>' + (report['件名'] || 'N/A') + '</td>' +
-          '<td>' + formatNumber(totalExpense) + '</td>' +
+          '<td>' + formatNumber(totalExpense) + '</td>' + // (v24: カンマ区切り)
           '<td><small>' + (expenseDetails || '(経費なし)') + '</small></td>' +
           '<td><small>' + String(reportId).substring(0, 8) + '...</small></td>';
         
@@ -1653,7 +1792,7 @@
       });
     }
 
-    // --- (E) 申請一覧機能 (v20: 修正) -----------------------------------
+    // --- (E) 申請一覧機能 (v20: 修正 / v25: UI変更) ----------------------
 
     /**
      * (E) 自分の申請一覧をロード
@@ -1667,7 +1806,7 @@
     }
 
     /**
-     * (E) 申請一覧 取得成功 (v20: 修正)
+     * (E) 申請一覧 取得成功 (v25: グループ化UIに修正)
      */
     function onLoadMyReportsSuccessE(reports) {
       showLoading(false);
@@ -1675,14 +1814,25 @@
       tbody.innerHTML = '';
 
       if (!reports || reports.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="text-center">申請データはありません。</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center">申請データはありません。</td></tr>'; // (v25: colspan=5)
         return;
       }
       
+      var currentStatus = ""; // (v25: グループ化のための現在ステータス)
+
       reports.forEach(function(report) {
-        var tr = document.createElement('tr');
         var rId = report['経費ID'];
         var status = report['承認ステータス'];
+
+        // (v25: ステータスが変わったらヘッダー行を挿入)
+        if (status !== currentStatus) {
+          currentStatus = status;
+          var headerTr = document.createElement('tr');
+          headerTr.className = 'status-group-header'; // (v25: スタイル適用)
+          // (v26: 修正) クラスを追加 (fs-6, py-2)
+          headerTr.innerHTML = '<td colspan="5" class="fs-6 fw-bold ps-3 py-2">' + currentStatus + '</td>';
+          tbody.appendChild(headerTr);
+        }
         
         var statusBadge = '';
         switch (status) {
@@ -1694,6 +1844,7 @@
           default: statusBadge = '<span class="badge bg-secondary">' + status + '</span>';
         }
 
+        // (v25: 画像のUIに合わせる)
         var buttons = '';
         if (status === '一時保存' || status === '差戻し') {
           buttons = '<button class="btn btn-sm btn-primary" onclick="handleEditReportE(\'' + rId + '\')"><i class="bi bi-pencil"></i> 編集</button>';
@@ -1701,9 +1852,11 @@
           buttons = '<button class="btn btn-sm btn-outline-secondary" onclick="loadReportDetailsC(\'' + rId + '\', \'view-E-my-reports\')"><i class="bi bi-eye"></i> 表示</button>';
         }
         
+        var tr = document.createElement('tr');
+        
+        // (v25: 列構成変更)
         tr.innerHTML = 
           '<td>' + (report['日付'] || '') + '</td>' +
-          '<td>' + (report['件名'] || 'N/A') + '</td>' +
           '<td>' + statusBadge + '</td>' +
           '<td>' + formatNumber(report['合計経費']) + '</td>' +
           '<td><small>' + (report['備考'] || '') + '</small></td>' +
@@ -1733,7 +1886,7 @@
     }
     
     /**
-     * (A) 編集データの読み込み成功 (E -> A) (v20: 修正 / v21: 拡張) (要件3-4)
+     * (A) 編集データの読み込み成功 (E -> A) (v20: 修正 / v21: 拡張 / v24: 税率読込) (要件3-4)
      */
     function onLoadReportForEditSuccessA(result) {
       showLoading(false);
@@ -1751,6 +1904,7 @@
         resetFormA();
         
         // (v21: areaCodeも読み込まれる)
+        // (v24: taxRate, preTaxAmount も読み込まれる)
         currentExpenses = data.expenses || [];
 
         renderExpenseListA();
